@@ -1,0 +1,32 @@
+[
+    {
+        "name": "ZT-Amox",
+        "mg": 200,
+        "ml": 5,
+        "dose": 50
+    },
+    {
+        "name": "Cefdinir",
+        "mg": 125,
+        "ml": 5,
+        "dose": 14
+    },
+    {
+        "name": "Bactirid",
+        "mg": 100,
+        "ml": 5,
+        "dose": 8
+    },
+    {
+        "name": "ZiUSA",
+        "mg": 200,
+        "ml": 5,
+        "dose": 10
+    },
+    {
+        "name": "Biseptol",
+        "mg": 240,
+        "ml": 5,
+        "dose": 48
+    }
+]
