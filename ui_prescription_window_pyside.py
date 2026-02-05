@@ -340,40 +340,33 @@ class PrescriptionWindow(QMainWindow):
             QMessageBox.warning(self, "Chưa có thuốc", "Vui lòng chọn ít nhất một loại thuốc.")
             return
 
-        current_hist = self.patient_info['medical_history'] or ""
-        parts = current_hist.split('\n', 1)
-        diagnosis_part = parts[0].strip() if parts else ""
-        old_med_text = parts[1] if len(parts) > 1 else ""
-
-        start_index = 1
-        final_med_text = ""
-
-        # Logic: Kê tiếp đơn cũ
-        if self.chk_append.isChecked() and old_med_text.strip():
-            final_med_text = old_med_text.strip()
-            # Parse max index from old text
-            import re
-            # Find lines starting with "digit)"
-            matches = re.findall(r'^(\d+)\)', final_med_text, re.MULTILINE)
-            if matches:
-                try:
-                    max_idx = max(map(int, matches))
-                    start_index = max_idx + 1
-                except:
-                    start_index = 1 # Fallback if error parsing
-            
-            if final_med_text:
-                final_med_text += "\n"
-
-        lines = []
-        for i, item in enumerate(self.prescription_items):
-            lines.append(f"{start_index + i}) {item['name']} x {item['qty']} {item['spec']}")
+        # Get current diagnosis from patient (new field)
+        current_diagnosis = database.get_patient_diagnosis_db(self.patient_id)
+        if not current_diagnosis:
+            # Fallback: try to parse from old medical_history
+            medical_history = self.patient_info.get('medical_history') or ""
+            if medical_history:
+                lines = medical_history.split('\n', 1)
+                current_diagnosis = lines[0].strip() if lines else ""
         
-        final_med_text += "\n".join(lines)
+        # Prepare prescription items for new API
+        items = []
+        for item in self.prescription_items:
+            items.append({
+                'medicine_id': item['id'],
+                'quantity': item['qty'],
+                'unit_price': item['price']
+            })
         
-        updated_hist = (diagnosis_part + "\n" + final_med_text).strip()
+        # Create prescription using new API
+        prescription_id = database.create_prescription_db(
+            patient_id=self.patient_id,
+            diagnosis=current_diagnosis,
+            items=items,
+            notes=""
+        )
         
-        if database.update_patient_diagnosis_db(self.patient_id, updated_hist):
+        if prescription_id:
             self._saved = True  # Mark as saved to skip close confirmation
             QMessageBox.information(self, "Thành công", "Đã lưu đơn thuốc và cập nhật hồ sơ.")
             if self.on_success_callback:

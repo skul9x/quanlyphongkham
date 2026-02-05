@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import datetime
 import pytz
+import re
 import config
 import utils
 import traceback
@@ -61,6 +62,7 @@ def initialize_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_id INTEGER NOT NULL,
                 prescription_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                diagnosis TEXT,
                 total_amount REAL DEFAULT 0.0,
                 notes TEXT,
                 FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
@@ -126,6 +128,30 @@ def initialize_database():
             c.execute("CREATE INDEX IF NOT EXISTS idx_patients_phone ON patients(phone)")
             c.execute("CREATE INDEX IF NOT EXISTS idx_patients_created_at ON patients(created_at)")
             print("[DB] Migration complete: 'allergies' -> 'weight'.")
+        
+        # --- Migration: Add diagnosis and prescription_migrated columns to patients ---
+        c.execute("PRAGMA table_info(patients)")
+        columns = [col[1] for col in c.fetchall()]
+        
+        if 'diagnosis' not in columns:
+            print("[DB] Migrating: Adding diagnosis column to patients...")
+            c.execute("ALTER TABLE patients ADD COLUMN diagnosis TEXT")
+        
+        if 'prescription_migrated' not in columns:
+            print("[DB] Migrating: Adding prescription_migrated flag...")
+            c.execute("ALTER TABLE patients ADD COLUMN prescription_migrated INTEGER DEFAULT 0")
+        
+        # --- Migration: Add diagnosis column to prescriptions_header if not exists ---
+        c.execute("PRAGMA table_info(prescriptions_header)")
+        ph_columns = [col[1] for col in c.fetchall()]
+        if 'diagnosis' not in ph_columns:
+            print("[DB] Migrating: Adding diagnosis column to prescriptions_header...")
+            c.execute("ALTER TABLE prescriptions_header ADD COLUMN diagnosis TEXT")
+        
+        conn.commit()
+        
+        # --- Migration: Parse legacy medical_history and migrate to prescriptions ---
+        _migrate_legacy_prescriptions()
         
         conn.commit()
         print("[DB] Database initialized successfully.")
@@ -623,3 +649,289 @@ def get_patient_dobs_by_time(filter_type, time_value):
     finally:
         if conn: conn.close()
     return results
+
+# =============================================================================
+# PRESCRIPTION MIGRATION & CRUD FUNCTIONS (v4.3.4)
+# =============================================================================
+
+def _parse_legacy_medical_history(text):
+    """
+    Parse legacy medical_history format into diagnosis and medicine list.
+    
+    Input:  "Viêm họng cấp\n1) Amoxicillin x 10 Viên\n2) Paracetamol x 5"
+    Output: {
+        'diagnosis': 'Viêm họng cấp',
+        'medicines': [
+            {'name': 'Amoxicillin', 'qty': 10, 'spec': 'Viên'},
+            {'name': 'Paracetamol', 'qty': 5, 'spec': ''}
+        ]
+    }
+    """
+    if not text or not text.strip():
+        return {'diagnosis': '', 'medicines': []}
+    
+    lines = text.strip().split('\n')
+    diagnosis = lines[0].strip() if lines else ''
+    
+    medicines = []
+    # Regex: "số) Tên thuốc x SL Quy cách"
+    pattern = r'^\d+\)\s*(.+?)\s+x\s+(\d+)\s*(.*)$'
+    
+    for line in lines[1:]:
+        line = line.strip()
+        if not line:
+            continue
+        match = re.match(pattern, line, re.IGNORECASE)
+        if match:
+            try:
+                qty = int(match.group(2))
+                if qty > 0:
+                    medicines.append({
+                        'name': match.group(1).strip(),
+                        'qty': qty,
+                        'spec': match.group(3).strip()
+                    })
+            except ValueError:
+                print(f"[DB MIGRATE] Warning: Invalid quantity in line: {line}")
+                continue
+        else:
+            # Line doesn't match pattern - might be part of diagnosis
+            # Skip it but log for debugging
+            print(f"[DB MIGRATE] Skipping unparseable line: {line}")
+    
+    return {'diagnosis': diagnosis, 'medicines': medicines}
+
+
+def _migrate_legacy_prescriptions():
+    """
+    Migrate legacy medical_history data to new prescription tables.
+    This function is idempotent - safe to run multiple times.
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Find patients with legacy data that haven't been migrated yet
+        c.execute("""
+            SELECT id, medical_history, created_at 
+            FROM patients 
+            WHERE prescription_migrated = 0 
+              AND medical_history IS NOT NULL 
+              AND medical_history != ''
+        """)
+        patients_to_migrate = c.fetchall()
+        
+        if not patients_to_migrate:
+            return
+        
+        print(f"[DB MIGRATE] Found {len(patients_to_migrate)} patients to migrate...")
+        migrated_count = 0
+        
+        for patient in patients_to_migrate:
+            patient_id = patient['id']
+            medical_history = patient['medical_history']
+            created_at = patient['created_at']
+            
+            parsed = _parse_legacy_medical_history(medical_history)
+            
+            # Update patient's diagnosis field
+            if parsed['diagnosis']:
+                c.execute("UPDATE patients SET diagnosis = ? WHERE id = ?", 
+                         (parsed['diagnosis'], patient_id))
+            
+            # Create prescription if there are medicines
+            if parsed['medicines']:
+                # Insert prescription header
+                c.execute("""
+                    INSERT INTO prescriptions_header 
+                    (patient_id, prescription_date, diagnosis, total_amount, notes)
+                    VALUES (?, ?, ?, 0, 'Migrated from legacy data')
+                """, (patient_id, created_at, parsed['diagnosis']))
+                
+                prescription_id = c.lastrowid
+                total_amount = 0
+                
+                # Insert prescription details
+                for med in parsed['medicines']:
+                    # Try to find medicine in database
+                    c.execute("SELECT id, price FROM medicines WHERE LOWER(name) = LOWER(?)", 
+                             (med['name'],))
+                    medicine_row = c.fetchone()
+                    
+                    if medicine_row:
+                        medicine_id = medicine_row['id']
+                        unit_price = medicine_row['price'] or 0
+                    else:
+                        # Medicine not found - create it with price 0
+                        c.execute("""
+                            INSERT INTO medicines (name, packing_spec, price) 
+                            VALUES (?, ?, 0)
+                        """, (med['name'], med['spec']))
+                        medicine_id = c.lastrowid
+                        unit_price = 0
+                        print(f"[DB MIGRATE] Created new medicine: {med['name']}")
+                    
+                    # Insert detail record
+                    c.execute("""
+                        INSERT INTO prescription_details 
+                        (prescription_header_id, medicine_id, quantity, unit_price)
+                        VALUES (?, ?, ?, ?)
+                    """, (prescription_id, medicine_id, med['qty'], unit_price))
+                    
+                    total_amount += med['qty'] * unit_price
+                
+                # Update total amount
+                c.execute("UPDATE prescriptions_header SET total_amount = ? WHERE id = ?",
+                         (total_amount, prescription_id))
+            
+            # Mark as migrated
+            c.execute("UPDATE patients SET prescription_migrated = 1 WHERE id = ?", 
+                     (patient_id,))
+            migrated_count += 1
+        
+        conn.commit()
+        print(f"[DB MIGRATE] Successfully migrated {migrated_count} patients.")
+        
+    except sqlite3.Error as e:
+        print(f"[DB MIGRATE ERROR] {e}")
+        traceback.print_exc()
+        if conn:
+            conn.rollback()
+    finally:
+        if conn: 
+            conn.close()
+
+
+def create_prescription_db(patient_id, diagnosis, items, notes=""):
+    """
+    Create a new prescription for a patient.
+    
+    Args:
+        patient_id: ID of the patient
+        diagnosis: Diagnosis for this prescription
+        items: List of dicts with keys: medicine_id, quantity, unit_price
+        notes: Optional notes
+    
+    Returns:
+        prescription_id or None if error
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Calculate total amount
+        total_amount = sum(item.get('quantity', 0) * item.get('unit_price', 0) for item in items)
+        
+        # Insert prescription header
+        c.execute("""
+            INSERT INTO prescriptions_header 
+            (patient_id, diagnosis, total_amount, notes)
+            VALUES (?, ?, ?, ?)
+        """, (patient_id, diagnosis, total_amount, notes))
+        
+        prescription_id = c.lastrowid
+        
+        # Insert prescription details
+        for item in items:
+            c.execute("""
+                INSERT INTO prescription_details 
+                (prescription_header_id, medicine_id, quantity, unit_price)
+                VALUES (?, ?, ?, ?)
+            """, (prescription_id, item['medicine_id'], item['quantity'], item['unit_price']))
+        
+        # Update patient's diagnosis field with latest
+        c.execute("UPDATE patients SET diagnosis = ? WHERE id = ?", (diagnosis, patient_id))
+        
+        conn.commit()
+        print(f"[DB] Created prescription {prescription_id} for patient {patient_id}")
+        return prescription_id
+        
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] create_prescription_db: {e}")
+        traceback.print_exc()
+        if conn:
+            conn.rollback()
+        return None
+    finally:
+        if conn: 
+            conn.close()
+
+
+def get_prescriptions_by_patient_db(patient_id):
+    """
+    Get all prescriptions for a patient with details.
+    
+    Returns: List of prescription dicts with nested items
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Get prescription headers
+        c.execute("""
+            SELECT id, prescription_date, diagnosis, total_amount, notes
+            FROM prescriptions_header
+            WHERE patient_id = ?
+            ORDER BY prescription_date DESC
+        """, (patient_id,))
+        
+        prescriptions = []
+        for row in c.fetchall():
+            prescription = dict(row)
+            
+            # Get details for this prescription
+            c.execute("""
+                SELECT pd.id, pd.medicine_id, pd.quantity, pd.unit_price,
+                       m.name as medicine_name, m.packing_spec
+                FROM prescription_details pd
+                LEFT JOIN medicines m ON pd.medicine_id = m.id
+                WHERE pd.prescription_header_id = ?
+            """, (prescription['id'],))
+            
+            prescription['items'] = [dict(item) for item in c.fetchall()]
+            prescriptions.append(prescription)
+        
+        return prescriptions
+        
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] get_prescriptions_by_patient_db: {e}")
+        return []
+    finally:
+        if conn: 
+            conn.close()
+
+
+def get_patient_diagnosis_db(patient_id):
+    """Get the current diagnosis for a patient."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT diagnosis FROM patients WHERE id = ?", (patient_id,))
+        row = c.fetchone()
+        return row['diagnosis'] if row and row['diagnosis'] else ''
+    except sqlite3.Error:
+        return ''
+    finally:
+        if conn: 
+            conn.close()
+
+
+def set_patient_diagnosis_db(patient_id, diagnosis):
+    """Set the diagnosis for a patient (separate from medical_history)."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("UPDATE patients SET diagnosis = ? WHERE id = ?", (diagnosis, patient_id))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] set_patient_diagnosis_db: {e}")
+        return False
+    finally:
+        if conn: 
+            conn.close()

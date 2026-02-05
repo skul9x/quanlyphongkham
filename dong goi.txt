@@ -1,1 +1,1 @@
-pyinstaller --name QuanLyPhongKhamv4.3.2 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py
+pyinstaller --name QuanLyPhongKhamv4.4 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py

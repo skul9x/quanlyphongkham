@@ -258,6 +258,11 @@ class MainWindow(QMainWindow):
             f"{config.APP_TITLE}\n"
             f"Phiên bản: {config.APP_VERSION}\n"
             f"© Nguyễn Duy Trường\n\n"
+            "✨ ĐIỂM MỚI TRONG V4.4:\n"
+            "✅ Tách biệt Chẩn đoán & Đơn thuốc:\n"
+            "   Giúp bác sĩ quản lý bệnh án và lịch sử dùng thuốc rõ ràng, chi tiết hơn.\n"
+            "✅ Tự động nâng cấp dữ liệu:\n"
+            "   Toàn bộ dữ liệu cũ đã được chuyển đổi an toàn sang cấu trúc mới.\n\n"
             "Hệ thống quản lý phòng khám hiện đại."
         )
         QMessageBox.information(self, "Giới thiệu", about_message)

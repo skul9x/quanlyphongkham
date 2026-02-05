@@ -3,7 +3,7 @@
 
 DATABASE_NAME = 'clinic.db'
 DEFAULT_PAGE_SIZE = 50
-APP_VERSION = "4.3.2" # Cập nhật phiên bản
+APP_VERSION = "4.4" # Cập nhật phiên bản
 DEFAULT_APP_TITLE = "CLINIC MANAGER"
 APP_TITLE = f"Phần mềm Quản lý Phòng khám Nhi v{APP_VERSION}"
 APP_ICON = "logo.ico"

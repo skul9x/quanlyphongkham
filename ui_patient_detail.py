@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, Signal
 from ux_components import EmptyStateWidget, AnimatedButton
 from animation_helper import AnimationHelper
 import utils
+import database
 
 class PatientDetailWidget(QWidget):
     action_visit_clicked = Signal()
@@ -196,10 +197,37 @@ class PatientDetailWidget(QWidget):
         self.lbl_address.setText(p['address'])
         self.lbl_weight.setText(str(p['weight'] or "Không"))
         
-        history = p['medical_history'] or ""
-        parts = history.split('\n', 1)
-        self.lbl_diagnosis.setText(parts[0] if parts else "Chưa có chẩn đoán")
-        self.lbl_medicine.setText(parts[1] if len(parts) > 1 else "Chưa kê đơn")
+        # Get diagnosis from new field, fallback to medical_history
+        diagnosis = p.get('diagnosis') or ""
+        if not diagnosis:
+            # Fallback: parse from legacy medical_history
+            history = p.get('medical_history') or ""
+            parts = history.split('\n', 1)
+            diagnosis = parts[0] if parts else ""
+        self.lbl_diagnosis.setText(diagnosis or "Chưa có chẩn đoán")
+        
+        # Get prescriptions from new tables
+        prescriptions = database.get_prescriptions_by_patient_db(p['id'])
+        if prescriptions:
+            # Format the latest prescription for display
+            latest = prescriptions[0]  # Already sorted DESC by date
+            medicine_lines = []
+            for i, item in enumerate(latest.get('items', []), 1):
+                name = item.get('medicine_name', 'Unknown')
+                qty = item.get('quantity', 0)
+                spec = item.get('packing_spec', '')
+                medicine_lines.append(f"{i}) {name} x {qty} {spec}")
+            
+            if medicine_lines:
+                self.lbl_medicine.setText("\n".join(medicine_lines))
+            else:
+                self.lbl_medicine.setText("Chưa kê đơn")
+        else:
+            # Fallback: try legacy format from medical_history
+            history = p.get('medical_history') or ""
+            parts = history.split('\n', 1)
+            legacy_meds = parts[1] if len(parts) > 1 else ""
+            self.lbl_medicine.setText(legacy_meds if legacy_meds.strip() else "Chưa kê đơn")
         
         self.stack.setCurrentWidget(self.profile_scroll)
         self.profile_view.setVisible(True)
