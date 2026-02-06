@@ -1,34 +1,40 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 HANDOVER DOCUMENT - 2026-02-06
+📋 HANDOVER DOCUMENT - 2026-02-07
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📍 Trạng thái: **Dự án ổn định (v5.0.1)**
-🔢 Đến bước: Hoàn tất các bản vá lỗi đồng bộ và tương thích dữ liệu.
+🔢 Đến bước: Hoàn tất Sửa lỗi logic, Merge Git và Chuẩn bị đóng gói.
 
 ✅ ĐÃ XONG TRONG SESSION NÀY:
-   - **Version 5.0.1**: Nâng cấp phiên bản, cập nhật Cloud Sync Info, fix layout Help UI.
-   - **Fix Prescription Display**: Xử lý lỗi đơn thuốc mới không hiện trong form cũ bằng logic "Double-Write" (Cập nhật đồng thời bảng mới và text legacy).
-   - **Packaging Fix**: Cập nhật lệnh đóng gói PyInstaller (`dong goi.txt`) với các hidden-imports quan trọng (`postgrest`, `httpx`, `openpyxl`).
-   - **Sync Reliability**: Triển khai pattern Commit-then-Sync, Simple Retry (3 lần), và Fix mutable state leak trong sync queue.
-   - **DB Bug**: Fix lỗi duplicate INSERT khi thêm thuốc.
+3. **Double-Write Fix (Quan trọng):** Đã sửa logic "Double-Write" trong `save_prescription`. Thêm `{spec}` (đơn vị tính) vào chuỗi legacy text. 
+   - *Kết quả:* App Mobile và Form cũ giờ sẽ hiển thị đầy đủ "x 10 Viên" thay vì "x 10".
+   - *Kiểm chứng:* Đã pass Unit Test (`tests/quick_test_logic.py`).
+4. **Git Strategy:**
+   - Đã merge thành công lịch sử từ Remote.
+   - Đã loại bỏ file `clinic.db` khỏi Git để tránh conflict binary và bảo mật dữ liệu.
+   - Force Push lên nhánh `Supabase-v2` để đồng bộ.
+   
+✅ CÁC THAY ĐỔI TRƯỚC ĐÓ (v5.0.0 -> v5.0.1):
+   - **Help UI**: Cập nhật thông tin Cloud Sync, sửa lỗi layout.
+   - **Packaging**: Cập nhật lệnh PyInstaller (`dong goi.txt`) với hidden-imports (`postgrest`, `httpx`, `openpyxl`).
+   - **Sync Stability**: Triển khai pattern Commit-then-Sync, Simple Retry.
 
 ⏳ CÒN LẠI (Tồn đọng):
-   - **Stress Test**: Test tắt mạng giữa chừng khi đang kê đơn để kiểm tra độ bền của Retry Mechanism.
-   - **Performance**: Tối ưu tốc độ startup sync nếu danh sách bệnh nhân tăng lên con số hàng nghìn.
-   - **Migration Cleanup**: (Tương lai) Chuyển đổi hoàn toàn form "Sửa Chẩn Đoán" sang dùng structured data thay vì text legacy.
+   - **Đóng gói Final**: Chạy lệnh trong `dong goi.txt` để tạo file `.exe` cuối cùng cho khách hàng.
+   - **Refactor Currency**: (Thấp) Thống nhất format tiền tệ để tránh lỗi hiển thị `.rstrip()` (ví dụ 500.50 -> 500.5).
 
 🔧 QUYẾT ĐỊNH QUAN TRỌNG:
-   - **Double-Write**: Chọn ghi dữ liệu vào 2 nơi để đảm bảo app mobile (ClinicViewer) và các form cũ trên desktop không bị hỏng dữ liệu hiển thị.
-   - **Commit-then-Sync**: LUÔN commit database local trước khi đẩy dữ liệu vào queue sync để tránh mất dữ liệu nếu app crash sau khi insert cloud nhưng trước khi commit local.
+   - **Untrack DB**: Quyết định không track file Database trong Git để mỗi máy Dev/Prod có DB riêng, chỉ sync qua Supabase.
+   - **Legacy Parsing Regex**: Logic parse chuỗi legacy trong `database.py` đã được kiểm tra và xác nhận tương thích với format mới có đơn vị tính.
 
 ⚠️ LƯU Ý CHO SESSION SAU:
-   - File `dong goi.txt` hiện tại có lệnh build cho version `5.0.1`.
-   - Nếu đóng gói gặp lỗi thiếu module, kiểm tra thêm trong `main_pyside.py` các import động.
+   - Khi đóng gói, nhớ kiểm tra kỹ log của PyInstaller xem có warning `hidden-import` nào mới không.
+   - File `config.py` đang để version `5.0.1`.
 
 📁 FILES QUAN TRỌNG:
-   - `database.py`: Core logic xử lý DB và Sync Trigger.
-   - `ui_prescription_window_pyside.py`: Nơi thực hiện Double-Write khi kê đơn.
-   - `sync_manager.py`: Quản lý queue và retry logic.
+   - `ui_prescription_window_pyside.py`: Logic kê đơn (Double-Write).
+   - `database.py`: Core logic xử lý DB và Sync Trigger (Legacy Parsing).
+   - `.gitignore`: Cấu hình bỏ qua file DB.
    - `dong goi.txt`: Lệnh build app.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

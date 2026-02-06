@@ -31,16 +31,17 @@
             "Legacy-to-New Data Migration (medical_history -> structured tables)",
             "Sync-After-Commit Pattern (Avoid Race Condition)",
             "Exponential Backoff Retry (3 attempts: 1s, 3s, 5s)",
-            "Double-Write Pattern (Legacy Compatibility): Cập nhật đồng thời bảng quan hệ mới và trường text legacy để đảm bảo app mobile và form cũ vẫn hoạt động."
+            "Double-Write Pattern (Legacy Compatibility): Cập nhật đồng thời bảng quan hệ mới và trường text legacy.",
+            "Legacy Medical History Parsing (Regex): Dùng Regex để parse ngược chuỗi legacy thành object (Pattern: 'STT) Name x Qty Spec')."
         ],
         "gotchas": [
             "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",
             "Khi pull data từ Cloud, PHẢI chạy migration ngay để UI Desktop (v4.4+) thấy được đơn đơn thuốc mới.",
-            "UI Detail nên lặp qua danh sách đơn thuốc để tìm đơn có medicines thực sự (tránh đơn rỗng).",
             "SyncManager cần lọc các cột nội bộ (e.g. prescription_migrated) trước khi đẩy lên Supabase.",
             "LUÔN commit local database trước khi gọi sync manager để tránh Race Condition.",
             "Sử dụng shallow copy (dict(data)) trước khi đưa vào sync queue để tránh side effect.",
-            "Đóng gói bằng PyInstaller CẦN hidden-imports: postgrest, httpx, openpyxl vì PyInstaller không tự detect được các thư viện con của Supabase."
+            "Đóng gói bằng PyInstaller CẦN hidden-imports: postgrest, httpx, openpyxl vì PyInstaller không tự detect được các thư viện con của Supabase.",
+            "Format tiền tệ .rstrip('0') có thể gây lỗi hiển thị (500.50 -> 500.5), cần thống nhất format."
         ]
     }
 }

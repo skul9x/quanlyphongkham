@@ -371,7 +371,7 @@ class PrescriptionWindow(QMainWindow):
             # This ensures "Sửa Chẩn Đoán" form and Kotlin app can read the prescription
             legacy_lines = [current_diagnosis or ""]
             for i, item in enumerate(self.prescription_items):
-                legacy_lines.append(f"{i+1}) {item['name']} x {item['qty']}")
+                legacy_lines.append(f"{i+1}) {item['name']} x {item['qty']} {item['spec']}")
             legacy_text = "\n".join(legacy_lines)
             database.update_patient_medical_history_db(self.patient_id, legacy_text)
             
