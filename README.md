@@ -1,96 +1,87 @@
 # Clinic Manager - Phần mềm Quản lý Phòng khám Nhi
 
-![Version](https://img.shields.io/badge/Version-5.0-blue.svg) ![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg) ![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)
+![Version](https://img.shields.io/badge/Version-5.0.3-blue.svg) ![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg) ![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)
 
-Hệ thống quản lý phòng khám tư nhân nhẹ, hiện đại, tối ưu cho quy trình khám chữa bệnh Nhi khoa.
+Hệ thống quản lý phòng khám tư nhân hiện đại, ổn định, hỗ trợ đồng bộ Cloud và ứng dụng di động.
 
-## ✨ Tính năng nổi bật (v5.0)
+## ✨ Tính năng nổi bật (v5.0.3)
 
-### 🏥 Quản lý Bệnh nhân & Khám chữa bệnh
-- **Hồ sơ điện tử:** Lưu trữ thông tin hành chính, tiền sử bệnh, dị ứng.
-- **Tách biệt Chẩn đoán & Đơn thuốc (Mới v4.4):** 
-    - Quản lý chẩn đoán riêng biệt với đơn thuốc. 
-    - Dữ liệu cũ tự động được nâng cấp (migration).
-- **Lịch sử khám:** Xem lại toàn bộ lịch sử khám, đơn thuốc cũ của bệnh nhân.
+### 🏥 Quản lý Phòng khám Toàn diện
+- **Hồ sơ bệnh nhân:** Lưu trữ lịch sử khám, đơn thuốc, tiền sử bệnh trọn đời.
+- **Kê đơn thông minh:**
+    - Gợi ý thuốc theo tên/hoạt chất.
+    - Tính liều tự động theo cân nặng trẻ em.
+    - In đơn thuốc chuyên nghiệp (A4/A5).
+- **Kho thuốc:** Quản lý nhập/xuất/tồn, cảnh báo hết hạn.
 
-### 💊 Quản lý Kho thuốc & Kê đơn
-- **Kho thuốc thông minh:** Quản lý nhập/xuất, cảnh báo sắp hết hàng.
-- **Kê đơn nhanh:** 
-    - Tìm thuốc theo tên/hoạt chất.
-    - Gợi ý liều dùng.
-    - Tự động tính tiền và in đơn.
-- **Tính liều tự động:** Công cụ tính liều dựa trên cân nặng/tuổi của trẻ.
+### ☁️ Cloud Sync & Mobile (Đột phá)
+- **Supabase Cloud:** Đồng bộ dữ liệu real-time lên đám mây, an toàn tuyệt đối.
+- **ClinicViewer App:** Theo dõi phòng khám từ xa qua điện thoại Android.
+- **One-Way Push Sync (New):**
+    - Cơ chế **Local Master** đảm bảo dữ liệu tại máy tính là nguồn chuẩn duy nhất.
+    - **Synchronous Delete:** Xóa dữ liệu trên máy tính → Xóa ngay lập tức trên Cloud & Mobile.
+- **Auto Restore:** Tự động khôi phục dữ liệu về máy khi cài đặt lại phần mềm.
 
-### 📊 Báo cáo & Thống kê
-- **Dashboard trực quan:** Biểu đồ doanh thu, lượt khám theo ngày/tháng.
-- **Phân tích:** Thống kê mặt bệnh, nhóm tuổi bệnh nhân.
-
-### ☁️ Cloud & Mobile (Mới v5.0)
-- **Supabase Cloud Sync:** Đồng bộ dữ liệu an toàn lên đám mây, bảo vệ dữ liệu 24/7.
-- **Android App Integration:** 
-    - Kết nối với ứng dụng **ClinicViewer** trên Android.
-    - Theo dõi danh sách bệnh nhân và doanh thu từ xa.
-- **Splash Screen Chuyên nghiệp:**
-    - Màn hình khởi động hiện đại, hiển thị tiến trình đồng bộ dữ liệu.
-    - Tối ưu trải nghiệm người dùng, giúp ứng dụng khởi động mượt mà hơn.
+### 🛡️ Ổn định & Hiệu năng
+- **Chống mất dữ liệu:** Cơ chế Queue thông minh, đảm bảo dữ liệu luôn được gửi đi ngay cả khi mạng chập chờn.
+- **Fix Zombie Data:** Ngăn chặn triệt để tình trạng dữ liệu đã xóa tự động hồi sinh.
+- **Auto-Update:** Tự động cập nhật cấu trúc dữ liệu cũ (Legacy Migration) mà không làm mất thông tin.
 
 ---
 
-## 🚀 Cài đặt & Chạy ứng dụng
+## 🚀 Cài đặt & Sử dụng
 
 ### Yêu cầu hệ thống
-- Python 3.10 trở lên
-- Windows 10/11 (Khuyến nghị)
+- **OS:** Windows 10/11 (64-bit)
+- **RAM:** 4GB trở lên
+- **Python:** 3.10+ (nếu chạy source code)
 
-### 1. Cài đặt thư viện
-Chạy lệnh sau trong terminal để cài các thư viện cần thiết:
+### 1. Chạy từ Source Code
+Cài đặt thư viện:
 ```bash
-pip install PySide6 pytz matplotlib
+pip install PySide6 pytz matplotlib supabase postgrest httpx openpyxl
 ```
 
-### 2. Chạy ứng dụng
+Chạy ứng dụng:
 ```bash
 python main_pyside.py
 ```
 
-### 3. Đóng gói ra file .exe (Optional)
-Sử dụng PyInstaller (xem lệnh chi tiết trong `dong goi.txt`):
+### 2. Đóng gói ra file .exe
+Sử dụng PyInstaller (với đầy đủ hidden imports):
 ```bash
-pyinstaller --name QuanLyPhongKhamv5.0 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py
+pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.3 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
 ```
 
 ---
 
-## 🛠️ Cấu trúc dữ liệu (Database v4.4)
+## 🛠️ Cấu trúc dữ liệu
 
-Ứng dụng sử dụng **SQLite** (`clinic.db`). Schema chính:
+Ứng dụng sử dụng mô hình **Hybrid Database**:
 
-1.  **`patients`**: Thông tin bệnh nhân + Chẩn đoán mới nhất.
-2.  **`medicines`**: Danh mục thuốc.
-3.  **`prescriptions_header`**: Lưu thông tin chung của đơn thuốc (Ngày, Chẩn đoán, Tổng tiền).
-4.  **`prescription_details`**: Lưu chi tiết từng loại thuốc trong đơn (Tên, SL, Giá).
-5.  **`visits`**: (Legacy) Lịch sử lần khám cũ.
+1.  **Local (SQLite):** `clinic.db` - Lưu trữ chính, tốc độ cao, hoạt động Offline.
+2.  **Cloud (Supabase/PostgreSQL):** Bản sao lưu & API cho Mobile App.
+
+**Bảng chính:**
+- `patients`: Thông tin hành chính & chẩn đoán.
+- `medicines`: Danh mục thuốc & tồn kho.
+- `prescriptions_header`: Đơn thuốc (Ngày, Bác sĩ, Tổng tiền).
+- `prescription_details`: Chi tiết thuốc trong đơn.
 
 ---
 
 ## 📝 Changelog
 
-### v5.0 (Latest)
-- **Cloud Sync:** Tích hợp đồng bộ dữ liệu với Supabase.
-- **Mobile App:** Hỗ trợ kết nối với ứng dụng Android ClinicViewer.
-- **UI Update:** Cập nhật thông tin phiên bản và giới thiệu.
+### v5.0.3 (Stable) - 2026-02-07
+- **Feature:** Sync Delete Đồng Bộ - Xóa dữ liệu an toàn tuyệt đối.
+- **Fix:** Ngăn chặn Zombie Data (dữ liệu đã xóa tự hồi sinh).
+- **Fix:** Sửa lỗi ID Conflict khi cài lại máy.
 
-### v4.4
-- **Tách Database:** Tách `medical_history` thành bảng `prescriptions` riêng.
-- **Migration:** Tool tự động migrate dữ liệu cũ sang cấu trúc mới an toàn.
-- **UI:** Cập nhật giao diện Kê đơn và Xem chi tiết bệnh nhân.
-
-### v4.3.3
-- Fix lỗi hiển thị lịch sử.
-- Cải thiện hiệu năng search.
+### v5.0.0 - 2026-02-06
+- **Release:** Ra mắt phiên bản Cloud Sync & Mobile App Integration.
 
 ---
 
 ## 👤 Tác giả
 **Nguyễn Duy Trường**
-© 2026 All Rights Reserved.
+© 2026 Clinic Manager System. All Rights Reserved.
