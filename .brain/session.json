@@ -1,10 +1,15 @@
 {
-    "updated_at": "2026-02-07T00:32:00+07:00",
+    "updated_at": "2026-02-07T00:52:00+07:00",
     "working_on": {
         "feature": "Packaging & Stability",
-        "task": "Finalize v5.0.1 Release",
-        "status": "idle",
-        "files": []
+        "task": "Finalize v5.0.3 Release & Deployment",
+        "status": "in_progress",
+        "files": [
+            "sync_manager.py",
+            "database.py",
+            "config.py",
+            "CHANGELOG.md"
+        ]
     },
     "pending_tasks": [
         {
@@ -18,20 +23,20 @@
     ],
     "recent_changes": [
         {
-            "type": "test",
-            "description": "Passed Legacy Migration Logic Tests: Verified parsing of old/new prescription strings."
+            "type": "fix",
+            "description": "v5.0.3: Implemented Sync Delete (Synchronous Cloud Delete) to prevent deleted data exposure on Mobile App."
         },
         {
             "type": "fix",
-            "description": "Legacy String Format: Added 'spec' (đơn vị tính) to legacy medical_history string to ensure Mobile App displays units correctly."
+            "description": "v5.0.2: Fix Zombie Data bug by disabling auto-pull in Sync Manager (switched to One-Way Push)."
         },
         {
-            "type": "update",
-            "description": "Git Strategy: Merged Remote History, untracked 'clinic.db' to prevent conflicts, pushed forced update to Supabase-v2."
+            "type": "fix",
+            "description": "v5.0.2: Fix AUTOINCREMENT sequence conflict by resetting sqlite_sequence after Cloud Restore."
         },
         {
-            "type": "update",
-            "description": "Nâng cấp version 5.0.1: Fix lỗi đồng bộ kê đơn, cập nhật Help UI (Cloud Sync info, layout fix, contact info)."
+            "type": "test",
+            "description": "Passed Legacy Migration Logic Tests: Verified parsing of old/new prescription strings."
         }
     ],
     "decisions_made": [
@@ -46,6 +51,14 @@
         {
             "decision": "Untrack clinic.db from Git",
             "reason": "Prevent binary merge conflicts and secure patient data."
+        },
+        {
+            "decision": "One-Way Push Sync (Local Master)",
+            "reason": "Prevent 'Zombie Data' (resurrection of deleted records) by disabling auto-pull. Cloud acts as backup/read-only for Mobile."
+        },
+        {
+            "decision": "Synchronous Delete for Cloud",
+            "reason": "Ensure Mobile App doesn't see deleted records by waiting for Cloud delete confirmation before returning."
         }
     ]
 }

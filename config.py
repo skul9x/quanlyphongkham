@@ -3,7 +3,7 @@
 
 DATABASE_NAME = 'clinic.db'
 DEFAULT_PAGE_SIZE = 50
-APP_VERSION = "5.0.1" # Cập nhật phiên bản
+APP_VERSION = "5.0.3" # Sync Delete: ensure Cloud updated on delete
 DEFAULT_APP_TITLE = "CLINIC MANAGER"
 APP_TITLE = f"Phần mềm Quản lý Phòng khám Nhi v{APP_VERSION}"
 APP_ICON = "logo.ico"

@@ -289,8 +289,8 @@ def delete_visit_db(visit_id):
         c = conn.cursor()
         c.execute("DELETE FROM patients WHERE id=?", (visit_id,))
         conn.commit()
-        # [SYNC]
-        sync_manager.delete_patient(visit_id)
+        # [SYNC] v5.0.3: Use sync delete to ensure Cloud is updated immediately
+        sync_manager.delete_patient_sync(visit_id)
         return True
     except sqlite3.Error:
         return False
@@ -316,9 +316,9 @@ def delete_patient_and_all_visits_db(name, dob):
         
         conn.commit()
         
-        # [SYNC] Process deletions
+        # [SYNC] v5.0.3: Use sync delete to ensure Cloud is updated immediately
         for pid in ids_to_delete:
-            sync_manager.delete_patient(pid)
+            sync_manager.delete_patient_sync(pid)
 
         return True
     except sqlite3.Error:

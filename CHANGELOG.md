@@ -1,5 +1,18 @@
 # Changelog - Clinic System
 
+## [5.0.3] - 2026-02-07
+### Fixed
+- Clinic Manager (Desktop): **Sync Delete Đồng Bộ** - Xóa bệnh nhân giờ sẽ chờ Cloud xóa xong mới return. Mobile App sẽ không còn thấy dữ liệu đã xóa.
+
+## [5.0.2] - 2026-02-07
+### Fixed
+- Clinic Manager (Desktop): **Fix Zombie Data Bug** - Chuyển từ Two-Way Sync sang One-Way Push. Local là Master, Cloud chỉ là Backup. Tránh hiện tượng dữ liệu đã xóa tự động hồi sinh từ Cloud.
+- Clinic Manager (Desktop): **Fix AUTOINCREMENT Sequence** - Reset `sqlite_sequence` sau khi restore từ Cloud để tránh ID conflict khi tạo record mới.
+
+### Changed
+- Sync Direction: **One-Way Push Only** (Local → Cloud). Auto-pull từ Cloud đã bị disable.
+- Restore: Chỉ xảy ra khi Local DB trống (fresh install).
+
 ## [4.5.2] - 2026-02-06
 ### Fixed
 - Clinic Manager (Desktop): **Fix Prescription Display Issue** - Triển khai logic "Double-Write" cập nhật đồng thời bảng đơn thuốc mới và trường medical_history (legacy) để tương thích với form cũ và app di động.

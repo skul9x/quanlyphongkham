@@ -6,7 +6,7 @@
     "project": {
         "name": "Clinic Manager Desktop",
         "type": "Management System (Python/PySide6)",
-        "status": "Production/Stable (v5.0.1)"
+        "status": "Production/Stable (v5.0.3)"
     },
     "tech_stack": {
         "language": "Python 3.x",
@@ -19,20 +19,21 @@
         "Quản lý bệnh nhân (CRUD)",
         "Ghi nhận lượt khám và kê đơn",
         "Tính toán liều lượng thuốc tự động",
-        "Two-Way Sync: Tự động đồng bộ 2 chiều Local <-> Cloud",
-        "Cloud-as-Source-of-Truth: Tự động khôi phục dữ liệu khi cài lại app",
+        "One-Way Push Sync: Local là Master, chỉ đẩy lên Cloud (v5.0.2)",
+        "Cloud-as-Backup: Khôi phục tự động khi cài lại app (Local DB trống)",
         "Báo cáo thống kê doanh thu/bệnh nhân"
     ],
     "knowledge_items": {
         "patterns": [
             "MVP with PySide6",
             "Background Sync Queue (SyncManager Singleton)",
-            "Startup Reconciliation Pattern (Incremental ID comparison)",
+            "One-Way Push Sync (v5.0.2): Local là Master, chỉ Push lên Cloud. Auto-pull disabled để tránh Zombie Data.",
             "Legacy-to-New Data Migration (medical_history -> structured tables)",
             "Sync-After-Commit Pattern (Avoid Race Condition)",
             "Exponential Backoff Retry (3 attempts: 1s, 3s, 5s)",
             "Double-Write Pattern (Legacy Compatibility): Cập nhật đồng thời bảng quan hệ mới và trường text legacy.",
-            "Legacy Medical History Parsing (Regex): Dùng Regex để parse ngược chuỗi legacy thành object (Pattern: 'STT) Name x Qty Spec')."
+            "Legacy Medical History Parsing (Regex): Dùng Regex để parse ngược chuỗi legacy thành object (Pattern: 'STT) Name x Qty Spec').",
+            "AUTOINCREMENT Sequence Reset (v5.0.2): Reset sqlite_sequence sau khi restore từ Cloud để tránh ID conflict."
         ],
         "gotchas": [
             "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",

@@ -162,12 +162,33 @@ class SyncManager:
         })
 
     def delete_patient(self, patient_id):
-        """Queue a patient deletion"""
+        """Queue a patient deletion (async, may not complete before app closes)"""
         self.sync_queue.put({
             'table': 'patients',
             'action': 'delete',
             'data': {'id': patient_id}
         })
+
+    def delete_patient_sync(self, patient_id):
+        """
+        [v5.0.3] Synchronous delete - waits for Cloud deletion to complete.
+        Use this instead of delete_patient() to ensure Mobile App doesn't see deleted data.
+        
+        Returns:
+            True if Cloud delete succeeded, False otherwise
+        """
+        if not self.client:
+            print(f"[SYNC] Client not ready, skipping cloud delete for patient {patient_id}")
+            return False
+        
+        try:
+            self.client.table('patients').delete().eq('id', patient_id).execute()
+            print(f"[SYNC] Deleted patient {patient_id} from Cloud (sync)")
+            return True
+        except Exception as e:
+            print(f"[SYNC] Cloud delete failed for patient {patient_id}: {e}")
+            # Don't raise - local delete already succeeded, just log the error
+            return False
 
     def sync_medicine(self, medicine_data):
         """Queue a medicine for sync"""
@@ -308,6 +329,9 @@ class SyncManager:
             
             database._migrate_legacy_prescriptions()
             
+            # [FIX] v5.0.2: Reset AUTOINCREMENT sequences to prevent ID conflicts
+            self._reset_autoincrement_sequences()
+            
             if progress_callback:
                 progress_callback("Hoàn tất khôi phục!", 100)
             
@@ -319,11 +343,39 @@ class SyncManager:
             traceback.print_exc()
             return False
 
+    def _reset_autoincrement_sequences(self):
+        """
+        [v5.0.2] Reset SQLite AUTOINCREMENT sequences after cloud restore.
+        Prevents ID conflicts when creating new records after restoring old data.
+        """
+        try:
+            import database
+            conn = database._get_db_connection()
+            c = conn.cursor()
+            
+            tables = ['patients', 'medicines', 'prescriptions_header', 'prescription_details']
+            for table in tables:
+                # Update sequence to max ID in table (or skip if table empty)
+                c.execute(f"SELECT MAX(id) FROM {table}")
+                max_id = c.fetchone()[0]
+                if max_id:
+                    c.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = ?", (max_id, table))
+            
+            conn.commit()
+            conn.close()
+            print("[SYNC] Reset AUTOINCREMENT sequences after restore")
+        except Exception as e:
+            print(f"[SYNC] Warning: Could not reset sequences: {e}")
+
     def _incremental_sync(self, progress_callback=None):
         """
-        Compare local vs cloud and sync differences.
-        - Records in Cloud but not in Local -> Pull
+        [v5.0.2] One-way Push Sync: Local is Master.
         - Records in Local but not in Cloud -> Push
+        - Auto-pull DISABLED to prevent 'Zombie Data' resurrection.
+        
+        When user deletes a patient locally, we don't want Cloud to resurrect it
+        on next startup. Full restore only happens via pull_all_from_cloud()
+        when Local DB is empty (fresh install).
         """
         if not self.client:
             return False
@@ -340,24 +392,24 @@ class SyncManager:
             
             local_ids = set(database.get_all_patient_ids())
             
-            # Records in Cloud but not Local -> Pull
-            to_pull = cloud_ids - local_ids
-            if to_pull:
-                print(f"[SYNC] Found {len(to_pull)} patients in Cloud not in Local. Pulling...")
-                if progress_callback:
-                    progress_callback(f"Đang tải {len(to_pull)} bệnh nhân mới...", 60)
-                
-                for pid in to_pull:
-                    response = self.client.table('patients').select('*').eq('id', pid).execute()
-                    if response.data:
-                        database.insert_patient_from_cloud(response.data[0])
+            # [v5.0.2] DISABLED auto-pull to prevent "Zombie Data" resurrection
+            # If user deletes a patient locally, Cloud should NOT resurrect it.
+            # Restore is only allowed via pull_all_from_cloud() when Local DB is empty.
+            # 
+            # COMMENTED OUT:
+            # to_pull = cloud_ids - local_ids
+            # if to_pull:
+            #     for pid in to_pull:
+            #         response = self.client.table('patients').select('*').eq('id', pid).execute()
+            #         if response.data:
+            #             database.insert_patient_from_cloud(response.data[0])
             
-            # Records in Local but not Cloud -> Push
+            # Records in Local but not Cloud -> Push (KEEP THIS)
             to_push = local_ids - cloud_ids
             if to_push:
                 print(f"[SYNC] Found {len(to_push)} patients in Local not in Cloud. Pushing...")
                 if progress_callback:
-                    progress_callback(f"Đang đẩy {len(to_push)} bệnh nhân lên Cloud...", 80)
+                    progress_callback(f"Đang đẩy {len(to_push)} bệnh nhân lên Cloud...", 60)
                 
                 for pid in to_push:
                     patient = database.get_patient_by_id(pid)
@@ -367,7 +419,7 @@ class SyncManager:
             if progress_callback:
                 progress_callback("Đồng bộ hoàn tất!", 100)
             
-            print(f"[SYNC] Incremental sync complete. Pulled: {len(to_pull)}, Pushed: {len(to_push)}")
+            print(f"[SYNC] Incremental sync complete. Pushed: {len(to_push)} (auto-pull disabled)")
             return True
             
         except Exception as e:
