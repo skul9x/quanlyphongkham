@@ -1,0 +1,40 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "4.0.2"
+    },
+    "project": {
+        "name": "Clinic Manager Desktop",
+        "type": "Management System (Python/PySide6)",
+        "status": "Production/Stable (v4.5.1)"
+    },
+    "tech_stack": {
+        "language": "Python 3.x",
+        "ui_framework": "PySide6 (Qt for Python)",
+        "database": "SQLite (local), Supabase (cloud sync)",
+        "serialization": "Idempotent Sync (Upsert based)",
+        "packaging": "PyInstaller"
+    },
+    "features": [
+        "Quản lý bệnh nhân (CRUD)",
+        "Ghi nhận lượt khám và kê đơn",
+        "Tính toán liều lượng thuốc tự động",
+        "Two-Way Sync: Tự động đồng bộ 2 chiều Local <-> Cloud",
+        "Cloud-as-Source-of-Truth: Tự động khôi phục dữ liệu khi cài lại app",
+        "Báo cáo thống kê doanh thu/bệnh nhân"
+    ],
+    "knowledge_items": {
+        "patterns": [
+            "MVP with PySide6",
+            "Background Sync Queue (SyncManager Singleton)",
+            "Startup Reconciliation Pattern (Incremental ID comparison)",
+            "Legacy-to-New Data Migration (medical_history -> structured tables)"
+        ],
+        "gotchas": [
+            "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",
+            "Khi pull data từ Cloud, PHẢI chạy migration ngay để UI Desktop (v4.4+) thấy được đơn đơn thuốc mới.",
+            "UI Detail nên lặp qua danh sách đơn thuốc để tìm đơn có medicines thực sự (tránh đơn rỗng).",
+            "SyncManager cần lọc các cột nội bộ (e.g. prescription_migrated) trước khi đẩy lên Supabase."
+        ]
+    }
+}

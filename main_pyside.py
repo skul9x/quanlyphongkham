@@ -4,7 +4,8 @@ import os
 import json
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QMessageBox, QStatusBar, 
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QButtonGroup, QFrame
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QButtonGroup, QFrame,
+    QProgressDialog
 )
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSize, QPoint, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
@@ -14,6 +15,7 @@ import database
 import theme_manager_pyside
 from animation_helper import AnimationHelper
 from ux_components import MarqueeLabel
+from sync_manager import sync_manager
 
 from ui_patient_pyside import PatientTab
 from ui_medicine_pyside import MedicineTab
@@ -55,6 +57,15 @@ class MainWindow(QMainWindow):
 
     def setup_database(self):
         database.initialize_database()
+        
+        # [v4.5] Two-Way Sync: Check Cloud and sync on startup
+        try:
+            def progress_callback(message, percent):
+                print(f"[SYNC UI] {percent}% - {message}")
+            
+            sync_manager.startup_sync(progress_callback)
+        except Exception as e:
+            print(f"[SYNC] Startup sync failed: {e}")
 
     def create_actions(self):
         self.exit_action = QAction("Thoát", self)

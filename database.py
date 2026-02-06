@@ -5,6 +5,7 @@ import re
 import config
 import utils
 import traceback
+from sync_manager import sync_manager
 
 # --- Connection ---
 def _get_db_connection():
@@ -160,6 +161,9 @@ def initialize_database():
         traceback.print_exc()
     finally:
         if conn: conn.close()
+    
+    # Start sync manager
+    sync_manager.start()
 
 # --- Patients ---
 def add_patient_db(name, dob, gender, address, phone, weight, diagnosis):
@@ -173,6 +177,13 @@ def add_patient_db(name, dob, gender, address, phone, weight, diagnosis):
                      (name, dob, gender, address, phone, weight, medical_history, name_normalized)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
                   (name, dob, gender, address, phone, weight, diagnosis, name_normalized))
+        
+        # [SYNC] Add to queue
+        new_id = c.lastrowid
+        c.execute("SELECT * FROM patients WHERE id=?", (new_id,))
+        new_patient = c.fetchone()
+        sync_manager.sync_patient(new_patient)
+        
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -192,6 +203,12 @@ def update_patient_db(patient_id, name, dob, gender, address, phone, weight, dia
                      SET name=?, dob=?, gender=?, address=?, phone=?, weight=?, medical_history=?, name_normalized=?
                      WHERE id=?''',
                   (name, dob, gender, address, phone, weight, diagnosis, name_normalized, patient_id))
+        # [SYNC] Add to queue
+        c.execute("SELECT * FROM patients WHERE id=?", (patient_id,))
+        updated_patient = c.fetchone()
+        if updated_patient:
+            sync_manager.sync_patient(updated_patient)
+
         conn.commit()
         return True
     except sqlite3.Error:
@@ -267,6 +284,8 @@ def delete_visit_db(visit_id):
         c = conn.cursor()
         c.execute("DELETE FROM patients WHERE id=?", (visit_id,))
         conn.commit()
+        # [SYNC]
+        sync_manager.delete_patient(visit_id)
         return True
     except sqlite3.Error:
         return False
@@ -281,12 +300,21 @@ def delete_patient_and_all_visits_db(name, dob):
             
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("PRAGMA foreign_keys = ON")
+        # [SYNC] Fetch IDs first to delete from Supabase
+        c.execute("SELECT id FROM patients WHERE LOWER(name) = LOWER(?) AND (dob IS NULL OR dob = '')", (name.strip(),))
+        ids_to_delete = [row['id'] for row in c.fetchall()]
+        
         if dob:
             c.execute("DELETE FROM patients WHERE LOWER(name) = LOWER(?) AND dob = ?", (name.strip(), dob))
         else:
             c.execute("DELETE FROM patients WHERE LOWER(name) = LOWER(?) AND (dob IS NULL OR dob = '')", (name.strip(),))
+        
         conn.commit()
+        
+        # [SYNC] Process deletions
+        for pid in ids_to_delete:
+            sync_manager.delete_patient(pid)
+
         return True
     except sqlite3.Error:
         return False
@@ -415,6 +443,14 @@ def add_medicine_db(name, spec, price):
         conn = _get_db_connection()
         c = conn.cursor()
         c.execute("INSERT INTO medicines (name, packing_spec, price) VALUES (?, ?, ?)", (name, spec, price))
+        c.execute("INSERT INTO medicines (name, packing_spec, price) VALUES (?, ?, ?)", (name, spec, price))
+        new_id = c.lastrowid
+        
+        # [SYNC]
+        c.execute("SELECT * FROM medicines WHERE id=?", (new_id,))
+        new_med = c.fetchone()
+        sync_manager.sync_medicine(new_med)
+        
         conn.commit()
         print("[DB] Medicine added successfully, ID:", c.lastrowid)
         return c.lastrowid
@@ -431,6 +467,12 @@ def update_medicine_db(mid, name, spec, price):
         conn = _get_db_connection()
         c = conn.cursor()
         c.execute("UPDATE medicines SET name=?, packing_spec=?, price=? WHERE id=?", (name, spec, price, mid))
+        
+        # [SYNC]
+        c.execute("SELECT * FROM medicines WHERE id=?", (mid,))
+        updated_med = c.fetchone()
+        sync_manager.sync_medicine(updated_med)
+
         conn.commit()
         print("[DB] Medicine updated successfully")
         return True
@@ -451,6 +493,10 @@ def delete_medicine_db(mid):
             return False
         c.execute("DELETE FROM medicines WHERE id=?", (mid,))
         conn.commit()
+        
+        # [SYNC]
+        sync_manager.delete_medicine(mid)
+        
         print("[DB] Medicine deleted successfully")
         return True
     except sqlite3.Error as e:
@@ -844,6 +890,27 @@ def create_prescription_db(patient_id, diagnosis, items, notes=""):
         # Update patient's diagnosis field with latest
         c.execute("UPDATE patients SET diagnosis = ? WHERE id = ?", (diagnosis, patient_id))
         
+        # [SYNC] Sync Header
+        c.execute("SELECT * FROM prescriptions_header WHERE id=?", (prescription_id,))
+        header = c.fetchone()
+        sync_manager.sync_prescription_header(header)
+        
+        # [SYNC] Sync Details
+        for item in items:
+             # Need to fetch the detail row properly or construct it
+             # Simplest is to fetch all details for this header
+             pass 
+             
+        c.execute("SELECT * FROM prescription_details WHERE prescription_header_id=?", (prescription_id,))
+        details = c.fetchall()
+        for d in details:
+            sync_manager.sync_prescription_detail(d)
+            
+        # [SYNC] Sync Patient (diagnosis changed)
+        c.execute("SELECT * FROM patients WHERE id=?", (patient_id,))
+        p = c.fetchone()
+        sync_manager.sync_patient(p)
+        
         conn.commit()
         print(f"[DB] Created prescription {prescription_id} for patient {patient_id}")
         return prescription_id
@@ -935,3 +1002,130 @@ def set_patient_diagnosis_db(patient_id, diagnosis):
     finally:
         if conn: 
             conn.close()
+
+# =============================================================================
+# CLOUD IMPORT FUNCTIONS (v4.5 - Two-Way Sync)
+# These functions insert data from Cloud WITHOUT triggering sync back.
+# =============================================================================
+
+def get_all_patient_ids():
+    """Get all patient IDs from local database for sync comparison."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT id FROM patients")
+        return [row['id'] for row in c.fetchall()]
+    except sqlite3.Error:
+        return []
+    finally:
+        if conn: conn.close()
+
+def insert_patient_from_cloud(data):
+    """
+    Insert a patient record from Cloud data.
+    IMPORTANT: Does NOT trigger sync_manager to avoid infinite loops.
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Extract fields with defaults for missing columns
+        name_normalized = utils.remove_diacritics(data.get('name', '').lower()) if data.get('name') else None
+        
+        c.execute('''INSERT OR REPLACE INTO patients 
+                     (id, name, dob, gender, address, phone, weight, medical_history, created_at, name_normalized, diagnosis)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                  (data.get('id'),
+                   data.get('name'),
+                   data.get('dob'),
+                   data.get('gender'),
+                   data.get('address'),
+                   data.get('phone'),
+                   data.get('weight'),
+                   data.get('medical_history'),
+                   data.get('created_at'),
+                   name_normalized,
+                   data.get('diagnosis')))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_patient_from_cloud: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_medicine_from_cloud(data):
+    """
+    Insert a medicine record from Cloud data.
+    IMPORTANT: Does NOT trigger sync_manager to avoid infinite loops.
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO medicines (id, name, packing_spec, price)
+                     VALUES (?, ?, ?, ?)''',
+                  (data.get('id'),
+                   data.get('name'),
+                   data.get('packing_spec'),
+                   data.get('price')))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_medicine_from_cloud: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_prescription_header_from_cloud(data):
+    """
+    Insert a prescription header from Cloud data.
+    IMPORTANT: Does NOT trigger sync_manager to avoid infinite loops.
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO prescriptions_header 
+                     (id, patient_id, prescription_date, diagnosis, total_amount, notes)
+                     VALUES (?, ?, ?, ?, ?, ?)''',
+                  (data.get('id'),
+                   data.get('patient_id'),
+                   data.get('prescription_date'),
+                   data.get('diagnosis'),
+                   data.get('total_amount'),
+                   data.get('notes')))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_prescription_header_from_cloud: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_prescription_detail_from_cloud(data):
+    """
+    Insert a prescription detail from Cloud data.
+    IMPORTANT: Does NOT trigger sync_manager to avoid infinite loops.
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute('''INSERT OR REPLACE INTO prescription_details 
+                     (id, prescription_header_id, medicine_id, quantity, unit_price)
+                     VALUES (?, ?, ?, ?, ?)''',
+                  (data.get('id'),
+                   data.get('prescription_header_id'),
+                   data.get('medicine_id'),
+                   data.get('quantity'),
+                   data.get('unit_price')))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_prescription_detail_from_cloud: {e}")
+        return False
+    finally:
+        if conn: conn.close()

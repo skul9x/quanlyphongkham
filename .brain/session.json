@@ -1,0 +1,52 @@
+{
+    "updated_at": "2026-02-06T11:15:00Z",
+    "working_on": {
+        "feature": "Two-Way Sync & Data Integrity",
+        "task": "Implementing 2-way sync and fixing prescription display",
+        "status": "completed",
+        "files": [
+            "sync_manager.py",
+            "database.py",
+            "ui_patient_detail.py",
+            "main_pyside.py"
+        ]
+    },
+    "pending_tasks": [
+        {
+            "task": "Kiểm tra thực tế với record thật từ Cloud sau khi fix UI logic",
+            "priority": "high"
+        },
+        {
+            "task": "Tối ưu tốc độ startup sync nếu số lượng bệnh nhân > 1000",
+            "priority": "medium"
+        }
+    ],
+    "recent_changes": [
+        {
+            "type": "feature",
+            "description": "Triển khai Two-Way Sync trọn gói (Startup Sync, Pull All, Incremental Sync)"
+        },
+        {
+            "type": "fix",
+            "description": "Fix bug: Migration không chạy sau khi pull data từ Cloud"
+        },
+        {
+            "type": "fix",
+            "description": "Fix bug UI: Patient detail hiển thị 'Chưa kê đơn' do chọn trúng header rỗng"
+        },
+        {
+            "type": "database",
+            "description": "Thêm cột diagnosis và prescription_migrated vào SQLite & Supabase"
+        }
+    ],
+    "decisions_made": [
+        {
+            "decision": "Cloud là 'Source of Truth' khi database local trống",
+            "reason": "Cho phép khôi phục dữ liệu nhanh khi người dùng cài lại máy hoặc mất data."
+        },
+        {
+            "decision": "Sử dụng Incremental Sync dựa trên Patient ID",
+            "reason": "Đảm bảo tính nhất quán dữ liệu tối thiểu khi khởi động app mà không tốn quá nhiều tài nguyên."
+        }
+    ]
+}

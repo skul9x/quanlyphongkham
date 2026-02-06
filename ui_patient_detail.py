@@ -209,17 +209,25 @@ class PatientDetailWidget(QWidget):
         # Get prescriptions from new tables
         prescriptions = database.get_prescriptions_by_patient_db(p['id'])
         if prescriptions:
-            # Format the latest prescription for display
-            latest = prescriptions[0]  # Already sorted DESC by date
-            medicine_lines = []
-            for i, item in enumerate(latest.get('items', []), 1):
-                name = item.get('medicine_name', 'Unknown')
-                qty = item.get('quantity', 0)
-                spec = item.get('packing_spec', '')
-                medicine_lines.append(f"{i}) {name} x {qty} {spec}")
+            # Find the latest prescription that actually has items
+            latest = None
+            for rx in prescriptions:  # Already sorted DESC by date
+                if rx.get('items'):
+                    latest = rx
+                    break
             
-            if medicine_lines:
-                self.lbl_medicine.setText("\n".join(medicine_lines))
+            if latest:
+                medicine_lines = []
+                for i, item in enumerate(latest.get('items', []), 1):
+                    name = item.get('medicine_name', 'Unknown')
+                    qty = item.get('quantity', 0)
+                    spec = item.get('packing_spec', '')
+                    medicine_lines.append(f"{i}) {name} x {qty} {spec}")
+                
+                if medicine_lines:
+                    self.lbl_medicine.setText("\n".join(medicine_lines))
+                else:
+                    self.lbl_medicine.setText("Chưa kê đơn")
             else:
                 self.lbl_medicine.setText("Chưa kê đơn")
         else:
