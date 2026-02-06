@@ -1,0 +1,63 @@
+{
+    "updated_at": "2026-02-06T15:59:00Z",
+    "working_on": {
+        "feature": "Bug Fixing",
+        "task": "Fix prescription display in Edit Diagnosis form (Double-write Legacy Data)",
+        "status": "idle",
+        "files": []
+    },
+    "pending_tasks": [
+        {
+            "task": "Test thực tế: Tắt mạng khi đang kê đơn để kiểm tra Retry Mechanism",
+            "priority": "high"
+        },
+        {
+            "task": "Tối ưu tốc độ startup sync nếu số lượng bệnh nhân > 1000",
+            "priority": "medium"
+        }
+    ],
+    "recent_changes": [
+        {
+            "type": "update",
+            "description": "Nâng cấp version 5.0.1: Fix lỗi đồng bộ kê đơn, cập nhật Help UI (Cloud Sync info, layout fix, contact info)."
+        },
+        {
+            "type": "fix",
+            "description": "Packaging: Cập nhật lệnh PyInstaller với đầy đủ hidden-imports (postgrest, httpx, openpyxl) trong dong goi.txt."
+        },
+        {
+            "type": "fix",
+            "description": "Thêm logic 'Double-Write': Cập nhật medical_history (legacy) khi kê đơn để form cũ và App Kotlin hiển thị được đơn thuốc."
+        },
+        {
+            "type": "fix",
+            "description": "Fix Race Condition & Transaction Propagation Error bằng pattern Commit-then-Sync"
+        },
+        {
+            "type": "fix",
+            "description": "Xóa duplicate INSERT bug trong add_medicine_db"
+        },
+        {
+            "type": "feature",
+            "description": "Thêm Simple Retry (3 attempts) với exponential backoff cho sync worker"
+        },
+        {
+            "type": "fix",
+            "description": "Fix Leaking Mutable State bằng shallow copy trước khi sync queue"
+        }
+    ],
+    "decisions_made": [
+        {
+            "decision": "Double-Write medical_history",
+            "reason": "Quick fix để đảm bảo backward compatibility cho form cũ và mobile app mà không cần refactor lớn."
+        },
+        {
+            "decision": "Sử dụng pattern Commit-then-Sync cho mọi hàm database",
+            "reason": "Đảm bảo data local là source of truth trước khi đẩy lên cloud."
+        },
+        {
+            "decision": "Chọn Simple Retry (Option A) thay vì Persistent Queue",
+            "reason": "Đủ đáp ứng nhu cầu app desktop và đơn giản hóa codebase."
+        }
+    ]
+}
