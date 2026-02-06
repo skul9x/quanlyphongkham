@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QProgressDialog
 )
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt, QSize, QPoint, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+from PySide6.QtCore import Qt, QSize, QPoint, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QThread, Signal, QObject, QTimer, Slot
 
 import config
 import database
@@ -22,6 +22,11 @@ from ui_medicine_pyside import MedicineTab
 from ui_stats_pyside import StatsTab
 from ui_help_pyside import HelpTab
 from ui_debug_pyside import DebugTab
+
+# --- BACKGROUND COMPONENT: SYNC WORKER ---
+# (Defined at the end of file to keep import clean)
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -57,15 +62,8 @@ class MainWindow(QMainWindow):
 
     def setup_database(self):
         database.initialize_database()
-        
-        # [v4.5] Two-Way Sync: Check Cloud and sync on startup
-        try:
-            def progress_callback(message, percent):
-                print(f"[SYNC UI] {percent}% - {message}")
-            
-            sync_manager.startup_sync(progress_callback)
-        except Exception as e:
-            print(f"[SYNC] Startup sync failed: {e}")
+        # [v5.0] Sync is now handled by Splash Screen Worker
+
 
     def create_actions(self):
         self.exit_action = QAction("Thoát", self)
@@ -273,7 +271,9 @@ class MainWindow(QMainWindow):
             "✅ Kết nối Cloud System (Supabase):\n"
             "   Dữ liệu được đồng bộ an toàn lên đám mây, đảm bảo an toàn và truy cập mọi lúc.\n"
             "✅ Đồng bộ App Android:\n"
-            "   Đã có thể theo dõi danh sách bệnh nhân và doanh thu ngay trên điện thoại thông qua App ClinicViewer.\n\n"
+            "   Đã có thể theo dõi danh sách bệnh nhân và doanh thu ngay trên điện thoại thông qua App ClinicViewer.\n"
+            "✅ Splash Screen Mới:\n"
+            "   Trải nghiệm khởi động mượt mà, chuyên nghiệp với màn hình chờ đồng bộ thông minh.\n\n"
             "Hệ thống quản lý phòng khám hiện đại."
         )
         QMessageBox.information(self, "Giới thiệu", about_message)
@@ -348,11 +348,82 @@ class MainWindow(QMainWindow):
         self.save_settings()
         super().closeEvent(event)
 
+# --- BACKGROUND COMPONENT: SYNC WORKER ---
+class SyncWorker(QObject):
+    progress_update = Signal(str, int)
+    sync_finished = Signal(bool)
+
+    def run_sync(self):
+        try:
+            # Helper to bridge sync_manager callback to Qt Signal
+            def callback_bridge(msg, pct):
+                self.progress_update.emit(msg, pct)
+            
+            # Run sync
+            success = sync_manager.startup_sync(callback_bridge)
+            self.sync_finished.emit(success)
+        except Exception as e:
+            print(f"[WORKER ERROR] {e}")
+            self.progress_update.emit("Lỗi khởi động!", 0)
+            self.sync_finished.emit(False)
+
+class StartupManager(QObject):
+    def __init__(self, splash, worker_thread):
+        super().__init__()
+        self.splash = splash
+        self.worker_thread = worker_thread
+        self.main_window = None
+
+    @Slot(bool)
+    def on_sync_finished(self, success):
+        # This runs on the Main Thread because StartupManager is created in Main Thread
+        if success:
+            self.splash.update_progress("Đồng bộ hoàn tất! Đang mở ứng dụng...", 100)
+        else:
+            self.splash.update_progress("Đồng bộ thất bại (Offline). Đang mở ứng dụng...", 100)
+        
+        # Slight delay to let user see 100%
+        QTimer.singleShot(500, self.start_main_window)
+
+    def start_main_window(self):
+        # Properly stop the worker thread
+        self.worker_thread.quit()
+        self.worker_thread.wait()
+        
+        # Init MainWindow (Now guaranteed to be on Main Thread)
+        self.main_window = MainWindow()
+        self.main_window.showMaximized()
+        
+        # Close splash
+        self.splash.close()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName(config.APP_TITLE)
     app.setOrganizationName("NguyenDuyTruong")
     
-    window = MainWindow()
-    window.showMaximized()
+    # [STARTUP] Show Splash Screen
+    from ui_splash_screen import SplashScreen
+    splash = SplashScreen()
+    splash.show()
+    
+    # [WORKER] Setup Sync Worker
+    worker_thread = QThread()
+    worker = SyncWorker()
+    worker.moveToThread(worker_thread)
+    
+    # [MANAGER] Setup Startup Manager (Living in Main Thread)
+    startup_manager = StartupManager(splash, worker_thread)
+    
+    # Connect signals
+    # 1. Thread start -> Worker run
+    worker_thread.started.connect(worker.run_sync)
+    # 2. Worker progress -> Splash update
+    worker.progress_update.connect(splash.update_progress)
+    # 3. Worker finish -> Manager handle (Cross-thread signal)
+    worker.sync_finished.connect(startup_manager.on_sync_finished)
+    
+    # Start process
+    worker_thread.start()
+    
     sys.exit(app.exec())

@@ -30,6 +30,9 @@ Hệ thống quản lý phòng khám tư nhân nhẹ, hiện đại, tối ưu c
 - **Android App Integration:** 
     - Kết nối với ứng dụng **ClinicViewer** trên Android.
     - Theo dõi danh sách bệnh nhân và doanh thu từ xa.
+- **Splash Screen Chuyên nghiệp:**
+    - Màn hình khởi động hiện đại, hiển thị tiến trình đồng bộ dữ liệu.
+    - Tối ưu trải nghiệm người dùng, giúp ứng dụng khởi động mượt mà hơn.
 
 ---
 

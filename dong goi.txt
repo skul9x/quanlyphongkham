@@ -1,1 +1,1 @@
-pyinstaller --name QuanLyPhongKhamv5.0 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py
+pyinstaller --name QuanLyPhongKhamv5.0 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz --hidden-import supabase main_pyside.py
