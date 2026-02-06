@@ -1,10 +1,10 @@
 # Clinic Manager - Phần mềm Quản lý Phòng khám Nhi
 
-![Version](https://img.shields.io/badge/Version-4.4-blue.svg) ![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg) ![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)
+![Version](https://img.shields.io/badge/Version-5.0-blue.svg) ![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg) ![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)
 
 Hệ thống quản lý phòng khám tư nhân nhẹ, hiện đại, tối ưu cho quy trình khám chữa bệnh Nhi khoa.
 
-## ✨ Tính năng nổi bật (v4.4)
+## ✨ Tính năng nổi bật (v5.0)
 
 ### 🏥 Quản lý Bệnh nhân & Khám chữa bệnh
 - **Hồ sơ điện tử:** Lưu trữ thông tin hành chính, tiền sử bệnh, dị ứng.
@@ -24,6 +24,12 @@ Hệ thống quản lý phòng khám tư nhân nhẹ, hiện đại, tối ưu c
 ### 📊 Báo cáo & Thống kê
 - **Dashboard trực quan:** Biểu đồ doanh thu, lượt khám theo ngày/tháng.
 - **Phân tích:** Thống kê mặt bệnh, nhóm tuổi bệnh nhân.
+
+### ☁️ Cloud & Mobile (Mới v5.0)
+- **Supabase Cloud Sync:** Đồng bộ dữ liệu an toàn lên đám mây, bảo vệ dữ liệu 24/7.
+- **Android App Integration:** 
+    - Kết nối với ứng dụng **ClinicViewer** trên Android.
+    - Theo dõi danh sách bệnh nhân và doanh thu từ xa.
 
 ---
 
@@ -47,7 +53,7 @@ python main_pyside.py
 ### 3. Đóng gói ra file .exe (Optional)
 Sử dụng PyInstaller (xem lệnh chi tiết trong `dong goi.txt`):
 ```bash
-pyinstaller --name QuanLyPhongKhamv4.4 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py
+pyinstaller --name QuanLyPhongKhamv5.0 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz main_pyside.py
 ```
 
 ---
@@ -66,7 +72,12 @@ pyinstaller --name QuanLyPhongKhamv4.4 --windowed --icon=logo.ico --add-data "lo
 
 ## 📝 Changelog
 
-### v4.4 (Latest)
+### v5.0 (Latest)
+- **Cloud Sync:** Tích hợp đồng bộ dữ liệu với Supabase.
+- **Mobile App:** Hỗ trợ kết nối với ứng dụng Android ClinicViewer.
+- **UI Update:** Cập nhật thông tin phiên bản và giới thiệu.
+
+### v4.4
 - **Tách Database:** Tách `medical_history` thành bảng `prescriptions` riêng.
 - **Migration:** Tool tự động migrate dữ liệu cũ sang cấu trúc mới an toàn.
 - **UI:** Cập nhật giao diện Kê đơn và Xem chi tiết bệnh nhân.
