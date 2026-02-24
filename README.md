@@ -1,87 +1,87 @@
-# Clinic Manager - Phần mềm Quản lý Phòng khám Nhi
+# 🏥 Clinic Manager v5.0.5
+### Hệ thống Quản lý Phòng khám Nhi - Cloud Sync Edition
 
-![Version](https://img.shields.io/badge/Version-5.0.3-blue.svg) ![Python](https://img.shields.io/badge/Python-3.10+-yellow.svg) ![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)
+![Version](https://img.shields.io/badge/Version-5.0.5-blue.svg?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12+-yellow.svg?style=for-the-badge) ![PySide6](https://img.shields.io/badge/UI-PySide6-green.svg?style=for-the-badge) ![License](https://img.shields.io/badge/License-Private-red.svg?style=for-the-badge)
 
-Hệ thống quản lý phòng khám tư nhân hiện đại, ổn định, hỗ trợ đồng bộ Cloud và ứng dụng di động.
-
-## ✨ Tính năng nổi bật (v5.0.3)
-
-### 🏥 Quản lý Phòng khám Toàn diện
-- **Hồ sơ bệnh nhân:** Lưu trữ lịch sử khám, đơn thuốc, tiền sử bệnh trọn đời.
-- **Kê đơn thông minh:**
-    - Gợi ý thuốc theo tên/hoạt chất.
-    - Tính liều tự động theo cân nặng trẻ em.
-    - In đơn thuốc chuyên nghiệp (A4/A5).
-- **Kho thuốc:** Quản lý nhập/xuất/tồn, cảnh báo hết hạn.
-
-### ☁️ Cloud Sync & Mobile (Đột phá)
-- **Supabase Cloud:** Đồng bộ dữ liệu real-time lên đám mây, an toàn tuyệt đối.
-- **ClinicViewer App:** Theo dõi phòng khám từ xa qua điện thoại Android.
-- **One-Way Push Sync (New):**
-    - Cơ chế **Local Master** đảm bảo dữ liệu tại máy tính là nguồn chuẩn duy nhất.
-    - **Synchronous Delete:** Xóa dữ liệu trên máy tính → Xóa ngay lập tức trên Cloud & Mobile.
-- **Auto Restore:** Tự động khôi phục dữ liệu về máy khi cài đặt lại phần mềm.
-
-### 🛡️ Ổn định & Hiệu năng
-- **Chống mất dữ liệu:** Cơ chế Queue thông minh, đảm bảo dữ liệu luôn được gửi đi ngay cả khi mạng chập chờn.
-- **Fix Zombie Data:** Ngăn chặn triệt để tình trạng dữ liệu đã xóa tự động hồi sinh.
-- **Auto-Update:** Tự động cập nhật cấu trúc dữ liệu cũ (Legacy Migration) mà không làm mất thông tin.
+**Clinic Manager** là giải pháp quản lý phòng khám hiện đại, được tối ưu cho các phòng khám Nhi khoa. Phiên bản **v5.0.5** mang đến sự ổn định tuyệt đối với cơ chế đồng bộ đám mây và khả năng quản lý dữ liệu linh hoạt.
 
 ---
 
-## 🚀 Cài đặt & Sử dụng
+## ✨ Tính năng nổi bật
 
-### Yêu cầu hệ thống
-- **OS:** Windows 10/11 (64-bit)
-- **RAM:** 4GB trở lên
-- **Python:** 3.10+ (nếu chạy source code)
+### 🏥 Quản lý Chuyên môn
+- **Hồ sơ điện tử:** Quản lý lịch sử khám, chẩn đoán và đơn thuốc chi tiết.
+- **Kê đơn thông minh:** Tự động tính liều lượng thuốc dựa trên cân nặng của trẻ.
+- **In đơn thuốc:** Hỗ trợ in đơn mẫu A4/A5 chuyên nghiệp.
+- **Kho thuốc:** Theo dõi nhập/xuất/tồn kho và cảnh báo hạn sử dụng.
 
-### 1. Chạy từ Source Code
-Cài đặt thư viện:
+### ☁️ Công nghệ Đám mây (Cloud Sync)
+- **Đồng bộ Real-time:** Dữ liệu tự động sao lưu lên Supabase Cloud.
+- **ClinicViewer App:** Theo dõi doanh thu và danh sách bệnh nhân từ xa qua ứng dụng Android.
+- **An toàn Tuyệt đối:** Cơ chế **Local Master** đảm bảo dữ liệu máy tính luôn là nguồn chuẩn. Mất máy tính không mất dữ liệu.
+- **Xóa đồng bộ:** Xóa hồ sơ tại máy tính sẽ lập tức xóa trên Cloud và App Mobile, loại bỏ hoàn toàn "dữ liệu rác".
+
+### 🛡️ Ổn định & Hiệu năng (Mới trong v5.0.5)
+- **Fix Path Portability:** Tự động xử lý đường dẫn tuyệt đối cho Database và Cài đặt, đảm bảo app hoạt động ổn định bất kể vị trí chạy (Desktop, Shortcut hay thư mục cài đặt).
+- **Settings Persistence:** Khắc phục triệt để lỗi không lưu được cài đặt khi chạy file thực thi duy nhất (One-file).
+- **High-DPI Support:** Giao diện sắc nét trên mọi loại màn hình.
+- **Dark/Light Mode:** Chế độ bảo vệ mắt hiện đại.
+
+---
+
+## 🚀 Hướng dẫn Cài đặt
+
+### 🛠️ Yêu cầu Hệ thống
+- **HĐH:** Ubuntu 22.04+ / Windows 10/11
+- **Python:** 3.12+ (nếu chạy từ mã nguồn)
+
+### 1. Chạy từ Mã nguồn
 ```bash
-pip install PySide6 pytz matplotlib supabase postgrest httpx openpyxl
+# Tạo môi trường ảo
+python3 -m venv venv
+source venv/bin/activate
+
+# Cài đặt thư viện
+pip install -r requirements.txt # Hoặc cài lẻ: PySide6 pytz supabase openpyxl matplotlib
 ```
 
 Chạy ứng dụng:
 ```bash
-python main_pyside.py
+python3 main_pyside.py
 ```
 
-### 2. Đóng gói ra file .exe
-Sử dụng PyInstaller (với đầy đủ hidden imports):
+### 2. Đóng gói Ứng dụng (Linux)
+Sử dụng PyInstaller để tạo file thực thi duy nhất:
 ```bash
-pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.3 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 --onefile --icon=logo.ico --add-data "logo.ico:." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
 ```
 
 ---
 
-## 🛠️ Cấu trúc dữ liệu
-
-Ứng dụng sử dụng mô hình **Hybrid Database**:
-
-1.  **Local (SQLite):** `clinic.db` - Lưu trữ chính, tốc độ cao, hoạt động Offline.
-2.  **Cloud (Supabase/PostgreSQL):** Bản sao lưu & API cho Mobile App.
-
-**Bảng chính:**
-- `patients`: Thông tin hành chính & chẩn đoán.
-- `medicines`: Danh mục thuốc & tồn kho.
-- `prescriptions_header`: Đơn thuốc (Ngày, Bác sĩ, Tổng tiền).
-- `prescription_details`: Chi tiết thuốc trong đơn.
+## 🛠️ Cấu trúc Dữ liệu
+Dự án sử dụng mô hình **Hybrid Database**:
+1. **Local (SQLite):** `clinic.db` - Tốc độ cao, hoạt động Offline.
+2. **Cloud (Supabase/PostgreSQL):** Sao lưu động và cung cấp API cho App Mobile.
 
 ---
 
-## 📝 Changelog
+## 📝 Nhật ký Cập nhật (Changelog)
 
-### v5.0.3 (Stable) - 2026-02-07
+### v5.0.5 (Hiện tại) - 2026-02-24
+- **Fix:** Xử lý triệt để lỗi đường dẫn `settings.json` khi chạy từ Shortcut hoặc Desktop.
+- **Fix:** Đảm bảo lưu cài đặt thành công trong môi trường PyInstaller Single Executable.
+- **Update:** Cấu hình tiền công khám mặc định mới: **120.000 VNĐ**.
+- **Optimization:** Cải thiện tốc độ khởi động và đồng bộ ban đầu.
+
+### v5.0.3 - 2026-02-07
 - **Feature:** Sync Delete Đồng Bộ - Xóa dữ liệu an toàn tuyệt đối.
 - **Fix:** Ngăn chặn Zombie Data (dữ liệu đã xóa tự hồi sinh).
-- **Fix:** Sửa lỗi ID Conflict khi cài lại máy.
-
-### v5.0.0 - 2026-02-06
-- **Release:** Ra mắt phiên bản Cloud Sync & Mobile App Integration.
 
 ---
 
-## 👤 Tác giả
-**Nguyễn Duy Trường**
+## 👤 Thông tin Liên hệ
+- **Tác giả:** Nguyễn Duy Trường
+- **Email:** skul9x@gmail.com
+- **Hotline:** 0388.634.123
+
 © 2026 Clinic Manager System. All Rights Reserved.
