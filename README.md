@@ -50,10 +50,27 @@ Chạy ứng dụng:
 python3 main_pyside.py
 ```
 
-### 2. Đóng gói Ứng dụng (Linux)
-Sử dụng PyInstaller để tạo file thực thi duy nhất:
+### 2. Đóng gói ứng dụng (Build Executable)
+
+Sử dụng PyInstaller để tạo file thực thi duy nhất (`.exe` trên Windows hoặc binary trên Linux):
+
+#### 🐧 Trên Linux (Ubuntu/Debian)
 ```bash
-venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 --onefile --icon=logo.ico --add-data "logo.ico:." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 \
+    --onefile --windowed --icon=logo.ico \
+    --add-data "logo.ico:." \
+    --hidden-import pytz --hidden-import supabase --hidden-import postgrest \
+    --hidden-import httpx --hidden-import openpyxl main_pyside.py
+```
+
+#### 🪟 Trên Windows
+```powershell
+# Lưu ý: Dấu phân cách trong --add-data là dấu chấm phẩy (;)
+venv\Scripts\pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 `
+    --onefile --windowed --icon=logo.ico `
+    --add-data "logo.ico;." `
+    --hidden-import pytz --hidden-import supabase --hidden-import postgrest `
+    --hidden-import httpx --hidden-import openpyxl main_pyside.py
 ```
 
 ---
