@@ -1,0 +1,30 @@
+HƯỚNG DẪN ĐÓNG GÓI ỨNG DỤNG TRÊN LINUX (UBUNTU)
+==============================================
+
+1. LỆNH BUILD RA FILE THỰC THI DUY NHẤT (ONEFILE):
+----------------------------------------------
+venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 --onefile --icon=logo.ico --add-data "logo.ico:." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+
+(File sau khi build sẽ nằm trong thư mục: dist/QuanLyPhongKhamv5.0.5)
+
+
+2. LỆNH ĐÓNG GÓI THÀNH FILE CÀI ĐẶT .DEB (PRO):
+----------------------------------------------
+# Chạy script đóng gói tự động (đã tạo sẵn)
+bash build_deb.sh
+
+# File tạo ra sẽ có tên: quanlyphongkham_5.0.5_amd64.deb
+
+
+3. LỆNH CÀI ĐẶT FILE .DEB VÀO HỆ THỐNG:
+----------------------------------------------
+sudo dpkg -i quanlyphongkham_5.0.5_amd64.deb
+
+# Sau khi cài xong, có thể mở app bằng cách:
+# - Gõ 'quanlyphongkham' trong Terminal
+# - Tìm 'Quan Ly Phong Kham' trong menu ứng dụng Ubuntu (nhấn phím Windows)
+
+
+4. LỆNH GỠ CÀI ĐẶT (UNINSTALL):
+----------------------------------------------
+sudo apt remove quanlyphongkham
