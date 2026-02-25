@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=5.0.5
-Type=Application
-Name=Quan Ly Phong Kham
-Comment=Phan mem quan ly phong kham
-Exec=quanlyphongkham
-Icon=/usr/share/pixmaps/quanlyphongkham.ico
-Terminal=false
-Categories=Office;Medical;
