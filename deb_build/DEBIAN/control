@@ -1,0 +1,8 @@
+Package: quanlyphongkham
+Version: 5.0.5
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Nguyen Duy Truong <skul9x@gmail.com>
+Description: Phan mem Quan ly Phong kham Nhi version 5.0.5
+ 🤖 Ho tro dong bo Cloud Supabase va quan ly benh nhan chuyen nghiep.

@@ -1,30 +1,10 @@
-HƯỚNG DẪN ĐÓNG GÓI ỨNG DỤNG TRÊN LINUX (UBUNTU)
-==============================================
+cd ~/Desktop/Test_code/quanlyphongkham-Supabase-v2
 
-1. LỆNH BUILD RA FILE THỰC THI DUY NHẤT (ONEFILE):
-----------------------------------------------
-venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 --onefile --icon=logo.ico --add-data "logo.ico:." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+# 1. Xóa file build cũ
+rm -f dist/QuanLyPhongKhamv5.0.5
 
-(File sau khi build sẽ nằm trong thư mục: dist/QuanLyPhongKhamv5.0.5)
-
-
-2. LỆNH ĐÓNG GÓI THÀNH FILE CÀI ĐẶT .DEB (PRO):
-----------------------------------------------
-# Chạy script đóng gói tự động (đã tạo sẵn)
+# 2. Build lại với lệnh mới (đã có --add-binary cho IBus plugin)
 bash build_deb.sh
 
-# File tạo ra sẽ có tên: quanlyphongkham_5.0.5_amd64.deb
-
-
-3. LỆNH CÀI ĐẶT FILE .DEB VÀO HỆ THỐNG:
-----------------------------------------------
+# 3. Cài lại
 sudo dpkg -i quanlyphongkham_5.0.5_amd64.deb
-
-# Sau khi cài xong, có thể mở app bằng cách:
-# - Gõ 'quanlyphongkham' trong Terminal
-# - Tìm 'Quan Ly Phong Kham' trong menu ứng dụng Ubuntu (nhấn phím Windows)
-
-
-4. LỆNH GỠ CÀI ĐẶT (UNINSTALL):
-----------------------------------------------
-sudo apt remove quanlyphongkham

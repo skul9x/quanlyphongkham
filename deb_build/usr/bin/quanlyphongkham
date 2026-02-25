@@ -1,0 +1,6 @@
+#!/bin/bash
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+export GTK_IM_MODULE=ibus
+export IBUS_ENABLE_SYNC_MODE=1
+/opt/quanlyphongkham/QuanLyPhongKhamv5.0.5 "$@"

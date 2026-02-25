@@ -248,7 +248,9 @@ def update_visit_details_db(visit_id, weight, diagnosis):
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute('UPDATE patients SET weight=?, medical_history=? WHERE id=?', (weight, diagnosis, visit_id))
+        # Extract first line as the diagnosis field (used by patient detail view)
+        diag_only = diagnosis.split('\n', 1)[0].strip() if diagnosis else ""
+        c.execute('UPDATE patients SET weight=?, medical_history=?, diagnosis=? WHERE id=?', (weight, diagnosis, diag_only, visit_id))
         conn.commit()
         return True
     except sqlite3.Error:
@@ -940,6 +942,91 @@ def create_prescription_db(patient_id, diagnosis, items, notes=""):
         return None
     finally:
         if conn: 
+            conn.close()
+
+
+def get_latest_prescription_id_db(patient_id):
+    """Get the ID of the most recent prescription for a patient."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("""
+            SELECT id FROM prescriptions_header
+            WHERE patient_id = ?
+            ORDER BY prescription_date DESC
+            LIMIT 1
+        """, (patient_id,))
+        row = c.fetchone()
+        return row['id'] if row else None
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] get_latest_prescription_id_db: {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+
+def append_items_to_prescription_db(prescription_id, items):
+    """
+    Append new medicine items to an existing prescription.
+    
+    Args:
+        prescription_id: ID of the existing prescription header
+        items: List of dicts with keys: medicine_id, quantity, unit_price
+    
+    Returns:
+        True on success, False on error
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Calculate additional amount
+        added_amount = sum(item.get('quantity', 0) * item.get('unit_price', 0) for item in items)
+        
+        # Insert new detail rows
+        for item in items:
+            c.execute("""
+                INSERT INTO prescription_details
+                (prescription_header_id, medicine_id, quantity, unit_price)
+                VALUES (?, ?, ?, ?)
+            """, (prescription_id, item['medicine_id'], item['quantity'], item['unit_price']))
+        
+        # Update total_amount on header
+        c.execute("""
+            UPDATE prescriptions_header
+            SET total_amount = total_amount + ?
+            WHERE id = ?
+        """, (added_amount, prescription_id))
+        
+        # Fetch data for sync BEFORE commit
+        c.execute("SELECT * FROM prescriptions_header WHERE id=?", (prescription_id,))
+        header = c.fetchone()
+        
+        c.execute("SELECT * FROM prescription_details WHERE prescription_header_id=?", (prescription_id,))
+        details = c.fetchall()
+        
+        conn.commit()
+        
+        # [SYNC] Only sync AFTER commit succeeds
+        if header:
+            sync_manager.sync_prescription_header(header)
+        for d in details:
+            sync_manager.sync_prescription_detail(d)
+        
+        print(f"[DB] Appended {len(items)} items to prescription {prescription_id}")
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] append_items_to_prescription_db: {e}")
+        traceback.print_exc()
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
             conn.close()
 
 

@@ -341,6 +341,9 @@ class PrescriptionWindow(QMainWindow):
             QMessageBox.warning(self, "Chưa có thuốc", "Vui lòng chọn ít nhất một loại thuốc.")
             return
 
+        # [FIX BUG 1] Reload patient info to get latest data (avoid stale data)
+        self.patient_info = database.get_patient_by_id(self.patient_id)
+
         # Get current diagnosis from patient (new field)
         current_diagnosis = database.get_patient_diagnosis_db(self.patient_id)
         if not current_diagnosis:
@@ -350,7 +353,7 @@ class PrescriptionWindow(QMainWindow):
                 lines = medical_history.split('\n', 1)
                 current_diagnosis = lines[0].strip() if lines else ""
         
-        # Prepare prescription items for new API
+        # Prepare prescription items for API
         items = []
         for item in self.prescription_items:
             items.append({
@@ -359,21 +362,56 @@ class PrescriptionWindow(QMainWindow):
                 'unit_price': item['price']
             })
         
-        # Create prescription using new API
-        prescription_id = database.create_prescription_db(
-            patient_id=self.patient_id,
-            diagnosis=current_diagnosis,
-            items=items,
-            notes=""
-        )
+        # [FIX BUG 3] Branch logic: append to existing prescription vs create new
+        import re
         
-        if prescription_id:
+        if self.chk_append.isChecked():
+            # "Kê tiếp đơn cũ": Append items to the latest existing prescription
+            latest_id = database.get_latest_prescription_id_db(self.patient_id)
+            if latest_id:
+                success = database.append_items_to_prescription_db(latest_id, items)
+            else:
+                # No existing prescription → create new one
+                success = database.create_prescription_db(
+                    patient_id=self.patient_id,
+                    diagnosis=current_diagnosis,
+                    items=items,
+                    notes=""
+                )
+        else:
+            # Normal mode: Create entirely new prescription
+            success = database.create_prescription_db(
+                patient_id=self.patient_id,
+                diagnosis=current_diagnosis,
+                items=items,
+                notes=""
+            )
+        
+        if success:
             # [FIX] Sync legacy medical_history field for backward compatibility
-            # This ensures "Sửa Chẩn Đoán" form and Kotlin app can read the prescription
-            legacy_lines = [current_diagnosis or ""]
-            for i, item in enumerate(self.prescription_items):
-                legacy_lines.append(f"{i+1}) {item['name']} x {item['qty']} {item['spec']}")
-            legacy_text = "\n".join(legacy_lines)
+            if self.chk_append.isChecked():
+                # "Kê tiếp đơn cũ": Append new medicines after existing ones
+                existing_history = dict(self.patient_info).get('medical_history') or ""
+                existing_lines = existing_history.split('\n') if existing_history else []
+                
+                # [FIX BUG 5] Count existing medicine lines — strict regex: line must start with digit+)
+                old_med_lines = [l for l in existing_lines if re.match(r'^\d+\)\s', l)]
+                start_num = len(old_med_lines) + 1
+                
+                # Build new medicine lines numbered after the old ones
+                new_med_lines = []
+                for i, item in enumerate(self.prescription_items):
+                    new_med_lines.append(f"{start_num + i}) {item['name']} x {item['qty']} {item['spec']}")
+                
+                # [FIX BUG 4] Strip trailing newlines before joining to avoid blank lines
+                legacy_text = existing_history.rstrip("\n") + "\n" + "\n".join(new_med_lines)
+            else:
+                # Normal mode: Replace entirely
+                legacy_lines = [current_diagnosis or ""]
+                for i, item in enumerate(self.prescription_items):
+                    legacy_lines.append(f"{i+1}) {item['name']} x {item['qty']} {item['spec']}")
+                legacy_text = "\n".join(legacy_lines)
+            
             database.update_patient_medical_history_db(self.patient_id, legacy_text)
             
             self._saved = True  # Mark as saved to skip close confirmation

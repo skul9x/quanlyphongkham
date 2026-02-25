@@ -32,15 +32,21 @@ EOF
 # 4. Kiểm tra và Copy file thực thi
 if [ ! -f "dist/$EXE_NAME" ]; then
     echo "⚠️ Không tìm thấy file 'dist/$EXE_NAME'. Đang tiến hành build PyInstaller trước..."
-    venv/bin/pyinstaller --noconfirm --name $EXE_NAME --onefile --icon=logo.ico --add-data "logo.ico:." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+    venv/bin/pyinstaller --noconfirm --name $EXE_NAME --onefile --icon=logo.ico --add-data "logo.ico:." --add-binary "venv/lib/python3.12/site-packages/PySide6/Qt/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so:PySide6/Qt/plugins/platforminputcontexts/" --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
 fi
 
 cp dist/$EXE_NAME $STAGING_DIR/opt/$PACKAGE_NAME/
 cp logo.ico $STAGING_DIR/usr/share/pixmaps/quanlyphongkham.ico
 
-# 5. Tạo lệnh thực thi trong /usr/bin (symlink)
-echo "#!/bin/bash
-/opt/$PACKAGE_NAME/$EXE_NAME \"\$@\"" > $STAGING_DIR/usr/bin/$PACKAGE_NAME
+# 5. Tạo lệnh thực thi trong /usr/bin (wrapper script)
+cat > $STAGING_DIR/usr/bin/$PACKAGE_NAME <<WRAPPER
+#!/bin/bash
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+export GTK_IM_MODULE=ibus
+export IBUS_ENABLE_SYNC_MODE=1
+/opt/$PACKAGE_NAME/$EXE_NAME "\$@"
+WRAPPER
 chmod +x $STAGING_DIR/usr/bin/$PACKAGE_NAME
 
 # 6. Tạo file .desktop (Icon trong Menu)
