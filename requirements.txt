@@ -1,0 +1,5 @@
+PySide6
+pytz
+supabase
+openpyxl
+matplotlib

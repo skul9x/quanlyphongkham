@@ -1,0 +1,54 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "4.0.2"
+    },
+    "project": {
+        "name": "Clinic Manager Desktop",
+        "type": "Management System (Python/PySide6)",
+        "status": "Production/Stable (v5.0.6)"
+    },
+    "tech_stack": {
+        "language": "Python 3.x",
+        "ui_framework": "PySide6 (Qt for Python)",
+        "database": "SQLite (local), Supabase (cloud sync)",
+        "serialization": "Idempotent Sync (Upsert based)",
+        "packaging": "PyInstaller, Debian (.deb) Packaging"
+    },
+    "features": [
+        "Quản lý bệnh nhân (CRUD)",
+        "Ghi nhận lượt khám và kê đơn",
+        "Tính toán liều lượng thuốc tự động",
+        "One-Way Push Sync: Local là Master, chỉ đẩy lên Cloud (v5.0.2)",
+        "Cloud-as-Backup: Khôi phục tự động khi cài lại app (Local DB trống)",
+        "Báo cáo thống kê doanh thu/bệnh nhân",
+        "Tùy chỉnh Tiền công khám (Consultation Fee) linh hoạt qua Settings UI"
+    ],
+    "knowledge_items": {
+        "patterns": [
+            "MVP with PySide6",
+            "Background Sync Queue (SyncManager Singleton)",
+            "One-Way Push Sync (v5.0.2): Local là Master, chỉ Push lên Cloud. Auto-pull disabled để tránh Zombie Data.",
+            "Legacy-to-New Data Migration (medical_history -> structured tables)",
+            "Sync-After-Commit Pattern (Avoid Race Condition)",
+            "Exponential Backoff Retry (3 attempts: 1s, 3s, 5s)",
+            "Double-Write Pattern (Legacy Compatibility): Cập nhật đồng thời bảng quan hệ mới và trường text legacy.",
+            "Legacy Medical History Parsing (Regex): Dùng Regex để parse ngược chuỗi legacy thành object (Pattern: 'STT) Name x Qty Spec').",
+            "AUTOINCREMENT Sequence Reset (v5.0.2): Reset sqlite_sequence sau khi restore từ Cloud để tránh ID conflict.",
+            "Dynamic Runtime Config (Getter/Setter): Dùng config.get_...() thay cho hằng số để hỗ trợ thay đổi cài đặt không cần sửa code.",
+            "Debian Packaging Structure: Phân tách file vào /opt/[app], /usr/bin (symlink), và /usr/share/applications.",
+            "Simplified Diagnosis-Only Edit Dialog (v5.0.6): Tách biệt việc sửa chẩn đoán khỏi quản lý thuốc để tránh xung đột dữ liệu.",
+            "Linux UI Text Clipping Fix (v5.0.6): Dùng min-height (24px) và padding (6px 12px) để fix lỗi mất chân chữ (g, y, q, p) trên Linux."
+        ],
+        "gotchas": [
+            "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",
+            "Khi pull data từ Cloud, PHẢI chạy migration ngay để UI Desktop (v4.4+) thấy được đơn đơn thuốc mới.",
+            "SyncManager cần lọc các cột nội bộ (e.g. prescription_migrated) trước khi đẩy lên Supabase.",
+            "LUÔN commit local database trước khi gọi sync manager để tránh Race Condition.",
+            "Sử dụng shallow copy (dict(data)) trước khi đưa vào sync queue để tránh side effect.",
+            "Đóng gói bằng PyInstaller CẦN hidden-imports: postgrest, httpx, openpyxl.",
+            "sqlite3.Row Object Gotcha: Không dùng được .get() trực tiếp, PHẢI ép kiểu dict(row) trước khi truy cập linh hoạt.",
+            "FK Constraint Order: Khi sync, PHẢI đẩy Medicines lên trước PrescriptionDetails để tránh lỗi 23503 trên Supabase."
+        ]
+    }
+}

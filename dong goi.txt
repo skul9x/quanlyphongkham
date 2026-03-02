@@ -1,0 +1,1 @@
+pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 --windowed --icon=logo.ico --add-data "logo.ico;." --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py

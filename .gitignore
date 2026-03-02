@@ -1,0 +1,70 @@
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+
+# ── Virtual Environment ──
+.venv/
+venv/
+env/
+
+# ── Environment Variables ──
+.env
+settings.json
+
+# ── Build Artifacts ──
+build/
+dist/
+*.spec
+*.deb
+deb_build/
+deb_build.deb
+
+# ── Database (Local Only) ──
+clinic.db
+clinic.db-journal
+*.db
+*.db-journal
+
+# ── Logs ──
+*.log
+run_output*.log
+run_pid*.txt
+
+# ── IDE & Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS Files ──
+.DS_Store
+Thumbs.db
+
+# ── Archives & Old Source Code ──
+*.zip    
+*.tar.gz
+*.rar
+
+# ── Quick Test Scripts ──
+quick_test_*.py
+test_sync.py
+test_*.py
+
+# ── Brain Session (Local State) ──
+.brain/session.json
+.brain/handover.md
+
+# ── Temporary Files ──
+*.tmp
+*.bak
+__pycache__
+.venv
+venv
+env
+build
+dist
