@@ -37,16 +37,19 @@ class PrescriptionWindow(QMainWindow):
     def closeEvent(self, event):
         """Show confirmation if there are unsaved prescription items."""
         if self.prescription_items and not self._saved:
-            reply = QMessageBox.question(
-                self,
-                "Xác nhận thoát",
-                "Đơn kê chưa được lưu, bạn có muốn thoát không?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
-            if reply == QMessageBox.StandardButton.No:
-                event.ignore()
-                return
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Đơn thuốc chưa lưu")
+            msg.setText("Đơn chưa lưu, bạn có muốn lưu lại đơn thuốc không?")
+            msg.setIcon(QMessageBox.Icon.Warning)
+            btn_save = msg.addButton("Lưu đơn thuốc", QMessageBox.ButtonRole.AcceptRole)
+            btn_discard = msg.addButton("Không lưu đơn thuốc", QMessageBox.ButtonRole.DestructiveRole)
+            msg.exec()
+
+            if msg.clickedButton() == btn_save:
+                self.save_prescription()
+                if not self._saved:
+                    event.ignore()
+                    return
         event.accept()
 
     def setup_ui(self):
