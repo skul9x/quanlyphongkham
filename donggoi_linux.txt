@@ -1,10 +1,10 @@
 cd ~/Desktop/Test_code/quanlyphongkham-Supabase-v2
 
 # 1. Xóa file build cũ
-rm -f dist/QuanLyPhongKhamv5.0.5
+rm -f dist/QuanLyPhongKhamv5.0.6
 
 # 2. Build lại với lệnh mới (đã có --add-binary cho IBus plugin)
 bash build_deb.sh
 
 # 3. Cài lại
-sudo dpkg -i quanlyphongkham_5.0.5_amd64.deb
+sudo dpkg -i quanlyphongkham_5.0.6_amd64.deb

@@ -1,9 +1,9 @@
-# 🏥 Clinic Manager v5.0.5
+# 🏥 Clinic Manager v5.0.6
 ### Hệ thống Quản lý Phòng khám Nhi - Cloud Sync Edition
 
-![Version](https://img.shields.io/badge/Version-5.0.5-blue.svg?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12+-yellow.svg?style=for-the-badge) ![PySide6](https://img.shields.io/badge/UI-PySide6-green.svg?style=for-the-badge) ![License](https://img.shields.io/badge/License-Private-red.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-5.0.6-blue.svg?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12+-yellow.svg?style=for-the-badge) ![PySide6](https://img.shields.io/badge/UI-PySide6-green.svg?style=for-the-badge) ![License](https://img.shields.io/badge/License-Private-red.svg?style=for-the-badge)
 
-**Clinic Manager** là giải pháp quản lý phòng khám hiện đại, được tối ưu cho các phòng khám Nhi khoa. Phiên bản **v5.0.5** mang đến sự ổn định tuyệt đối với cơ chế đồng bộ đám mây và khả năng quản lý dữ liệu linh hoạt.
+**Clinic Manager** là giải pháp quản lý phòng khám hiện đại, được tối ưu cho các phòng khám Nhi khoa. Phiên bản **v5.0.6** mang đến sự ổn định tuyệt đối với cơ chế đồng bộ đám mây và khả năng quản lý dữ liệu linh hoạt.
 
 ---
 

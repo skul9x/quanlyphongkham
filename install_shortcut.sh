@@ -2,7 +2,7 @@
 
 # Đường dẫn hiện tại của project
 PROJECT_DIR=$(pwd)
-EXEC_PATH="$PROJECT_DIR/dist/QuanLyPhongKhamv5.0.5"
+EXEC_PATH="$PROJECT_DIR/dist/QuanLyPhongKhamv5.0.6"
 ICON_PATH="$PROJECT_DIR/logo.ico"
 APP_NAME="Quan Ly Phong Kham"
 
@@ -16,7 +16,7 @@ fi
 CAT_FILE=~/.local/share/applications/quanlyphongkham.desktop
 
 echo "[Desktop Entry]
-Version=5.0.5
+Version=5.0.6
 Type=Application
 Name=$APP_NAME
 Comment=Phan mem quan ly phong kham Nhi
