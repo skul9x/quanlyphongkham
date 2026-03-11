@@ -1,45 +1,31 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 HANDOVER DOCUMENT - 2026-02-07
+📋 HANDOVER DOCUMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📍 Trạng thái: **Dự án ổn định (v5.0.3)**
-🔢 Đến bước: Hoàn tất tất cả Sync Logic Hotfix. Sẵn sàng đóng gói.
+📍 Đang làm: Sửa lỗi luồng Kê đơn thuốc (Diagnosis Check & Stock Crash)
+🔢 Đến bước: Đã hoàn thiện và test tay an toàn.
 
-✅ ĐÃ XONG TRONG SESSION NÀY:
-1. **Fix Zombie Data Bug:** 
-   - Chuyển từ Two-Way Sync → One-Way Push
-   - Local là Master, Cloud chỉ là Backup
-   
-2. **Fix AUTOINCREMENT Sequence:**
-   - Thêm `_reset_autoincrement_sequences()` helper
-   - Tránh ID conflict khi restore
-
-3. **Sync Delete Đồng Bộ (Quan trọng):**
-   - Thêm `delete_patient_sync()` - xóa Cloud NGAY LẬP TỨC
-   - Mobile App KHÔNG còn thấy dữ liệu đã xóa
-
-4. **Documentation Updated:**
-   - `config.py`: Version 5.0.3
-   - `CHANGELOG.md`: Release notes v5.0.2 + v5.0.3
-   - `.brain/brain.json`: Updated patterns
-   - `main_pyside.py`: About dialog updated
-   - `dong goi.txt`: PyInstaller command updated
+✅ ĐÃ XONG:
+   - Sửa lỗi chặn kê đơn do cơ chế nhận diện chẩn đoán sai nguồn. Luôn tìm `diagnosis` field trước khi parse `medical_history`.
+   - Bổ sung validation an toàn cho `sqlite3.Row` trên PySide UI: phải convert sang `dict(row)` trước khi dùng `get()`. Fix crash cho màn hình đơn thuốc.
+   - Viết script migration an toàn tạo bảng/cột `stock_quantity`, `min_stock_level`.
+   - Lưu lại kiến thức phòng tránh crash tương tự vào `.brain` / session.
 
 ⏳ CÒN LẠI:
-   - **Đóng gói Final**: Chạy lệnh trong `dong goi.txt`
+   - Verify quá trình deploy (Packaging sang Ubuntu/Debian .deb) với SQLite mới (cột stock).
+   - Có thể thêm Auto Unit Tests để bảo vệ luồng Kê Đơn nếu project scale lớn hơn.
 
 🔧 QUYẾT ĐỊNH QUAN TRỌNG:
-   - **One-Way Push**: Sync chỉ đẩy Local → Cloud
-   - **Sync Delete**: Xóa bệnh nhân chờ Cloud xong mới return
-   - **Restore chỉ khi DB trống**: Fresh install mới pull từ Cloud
+   - Local-Only Feature: Inventory tracking chỉ được maintain trong Local database, không map lên Supabase trừ khi có requirement rõ ràng.
 
-📁 FILES ĐÃ THAY ĐỔI:
-   - `sync_manager.py`: One-Way Push, Sequence Reset, delete_patient_sync()
-   - `database.py`: Gọi delete_patient_sync() thay vì async
-   - `config.py`: Version 5.0.3
-   - `main_pyside.py`: About dialog v5.0.3
-   - `dong goi.txt`: QuanLyPhongKhamv5.0.3
-   - `CHANGELOG.md`: v5.0.2 + v5.0.3
+⚠️ LƯU Ý CHO SESSION SAU:
+   - Bất cứ UI Code nào kéo danh sách từ SQLite ở chế độ "row_factory", PHẢI cast thành `dict(row)` nếu cần dùng những method như get(), keys() để tránh `AttributeError`. 
+   - Test tay với `/test` mode vẫn đáng tin nhất do thiếu Test Suite PySide.
+
+📁 FILES QUAN TRỌNG:
+   - ui_prescription_window_pyside.py (Sửa Row data fix)
+   - ui_patient_pyside.py (Sửa Logic chẩn đoán)
+   - .brain/brain.json (Lưu cấu trúc & gotcha)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Đã lưu! Để tiếp tục: Gõ /recap

@@ -23,7 +23,7 @@ def get_database_path():
     return DATABASE_NAME
 
 DEFAULT_PAGE_SIZE = 50
-APP_VERSION = "5.0.6" # Sync Delete: ensure Cloud updated on delete
+APP_VERSION = "5.1.0" # Medication Inventory Management
 DEFAULT_APP_TITLE = "CLINIC MANAGER"
 APP_TITLE = f"Phần mềm Quản lý Phòng khám Nhi v{APP_VERSION}"
 APP_ICON = os.path.join(_APP_DIR, "logo.ico")

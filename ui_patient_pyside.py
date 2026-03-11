@@ -168,9 +168,11 @@ class PatientTab(QWidget):
     def open_prescription(self):
         if not self.current_patient: return
         
-        # Check if diagnosis exists before allowing prescription
-        medical_history = self.current_patient.get('medical_history') or ""
-        diagnosis = medical_history.split('\n', 1)[0].strip() if medical_history else ""
+        # Check diagnosis from dedicated field first, then fallback to legacy
+        diagnosis = self.current_patient.get('diagnosis') or ""
+        if not diagnosis:
+            medical_history = self.current_patient.get('medical_history') or ""
+            diagnosis = medical_history.split('\n', 1)[0].strip() if medical_history else ""
         
         if not diagnosis or diagnosis == "Chưa có chẩn đoán":
             QMessageBox.warning(

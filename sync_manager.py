@@ -86,6 +86,11 @@ class SyncManager:
                             # [FIX] Filter out internal columns not in Supabase
                             if table == 'patients' and 'prescription_migrated' in sync_data:
                                 del sync_data['prescription_migrated']
+                                
+                            # [v5.1.0] Do NOT sync local-only inventory fields to Supabase
+                            if table == 'medicines':
+                                sync_data.pop('stock_quantity', None)
+                                sync_data.pop('min_stock_level', None)
                             
                             # [FIX] v4.5.2: Validate DOB before sync
                             if table == 'patients':

@@ -3,3 +3,4 @@ pytz
 supabase
 openpyxl
 matplotlib
+pyinstaller

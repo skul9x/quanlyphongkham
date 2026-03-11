@@ -6,12 +6,12 @@
     "project": {
         "name": "Clinic Manager Desktop",
         "type": "Management System (Python/PySide6)",
-        "status": "Production/Stable (v5.0.6)"
+        "status": "Production/Stable (v5.1.0)"
     },
     "tech_stack": {
         "language": "Python 3.x",
         "ui_framework": "PySide6 (Qt for Python)",
-        "database": "SQLite (local), Supabase (cloud sync)",
+        "database": "SQLite (local), Supabase (cloud sync - partially)",
         "serialization": "Idempotent Sync (Upsert based)",
         "packaging": "PyInstaller, Debian (.deb) Packaging"
     },
@@ -19,6 +19,8 @@
         "Quản lý bệnh nhân (CRUD)",
         "Ghi nhận lượt khám và kê đơn",
         "Tính toán liều lượng thuốc tự động",
+        "Quản lý tồn kho thuốc (Local-Only): Theo dõi số lượng, ngưỡng cảnh báo, tự động trừ kho",
+        "Báo cáo thống kê thuốc dùng nhiều nhất và doanh thu thuốc",
         "One-Way Push Sync: Local là Master, chỉ đẩy lên Cloud (v5.0.2)",
         "Cloud-as-Backup: Khôi phục tự động khi cài lại app (Local DB trống)",
         "Báo cáo thống kê doanh thu/bệnh nhân",
@@ -28,6 +30,8 @@
         "patterns": [
             "MVP with PySide6",
             "Background Sync Queue (SyncManager Singleton)",
+            "Local-Only Inventory Tracking (v5.1.0): Tồn kho chỉ lưu SQLite local, không thay đổi schema Supabase Cloud.",
+            "Inline Warning in Prescription: Cảnh báo đỏ ngay trong bảng kê đơn nếu số lượng vượt quá tồn tồn kho.",
             "One-Way Push Sync (v5.0.2): Local là Master, chỉ Push lên Cloud. Auto-pull disabled để tránh Zombie Data.",
             "Legacy-to-New Data Migration (medical_history -> structured tables)",
             "Sync-After-Commit Pattern (Avoid Race Condition)",
@@ -41,6 +45,7 @@
             "Linux UI Text Clipping Fix (v5.0.6): Dùng min-height (24px) và padding (6px 12px) để fix lỗi mất chân chữ (g, y, q, p) trên Linux."
         ],
         "gotchas": [
+            "Cloud-Only Column Filtering: Khi thêm cột mới ở Local mà không muốn sửa Cloud, PHẢI dùng sync_data.pop('col', None) trong SyncManager.",
             "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",
             "Khi pull data từ Cloud, PHẢI chạy migration ngay để UI Desktop (v4.4+) thấy được đơn đơn thuốc mới.",
             "SyncManager cần lọc các cột nội bộ (e.g. prescription_migrated) trước khi đẩy lên Supabase.",
@@ -48,7 +53,9 @@
             "Sử dụng shallow copy (dict(data)) trước khi đưa vào sync queue để tránh side effect.",
             "Đóng gói bằng PyInstaller CẦN hidden-imports: postgrest, httpx, openpyxl.",
             "sqlite3.Row Object Gotcha: Không dùng được .get() trực tiếp, PHẢI ép kiểu dict(row) trước khi truy cập linh hoạt.",
-            "FK Constraint Order: Khi sync, PHẢI đẩy Medicines lên trước PrescriptionDetails để tránh lỗi 23503 trên Supabase."
+            "NULL Stock Safety: Khi thêm cột mới vào DB cũ, các giá trị NULL sẽ làm app crash nếu so sánh trực tiếp. PHẢI cast (int(val) if val is not None else 0) trong UI loop.",
+            "FK Constraint Order: Khi sync, PHẢI đẩy Medicines lên trước PrescriptionDetails để tránh lỗi 23503 trên Supabase.",
+            "Dual Diagnosis Fields: Ứng dụng có cả `diagnosis` và dòng đầu của `medical_history`. Khi đọc chẩn đoán, luôn ưu tiên field `diagnosis` mới."
         ]
     }
 }

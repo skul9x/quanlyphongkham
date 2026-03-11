@@ -2,10 +2,10 @@
 
 # 1. Cấu hình thông tin
 PACKAGE_NAME="quanlyphongkham"
-VERSION="5.0.6"
+VERSION="5.1.0"
 ARCH="amd64"
 STAGING_DIR="deb_build"
-EXE_NAME="QuanLyPhongKhamv5.0.6"
+EXE_NAME="QuanLyPhongKhamv5.1.0"
 
 echo "🚀 Bắt đầu đóng gói .deb cho $PACKAGE_NAME v$VERSION..."
 

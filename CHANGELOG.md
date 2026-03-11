@@ -1,5 +1,19 @@
 # Changelog - Clinic System
 
+## [5.1.0] - 2026-03-11
+### Added
+- **Quản lý tồn kho thuốc**: Thêm hệ thống theo dõi số lượng tồn kho (`stock_quantity`) và mức cảnh báo tối thiểu (`min_stock_level`) cho từng loại thuốc.
+- **Cảnh báo thuốc hết kho**: Banner cảnh báo nổi bật trên tab "Kho Thuốc" khi có thuốc sắp hết hoặc đã hết.
+- **Tự động trừ kho**: Hệ thống tự động trừ số lượng tồn kho khi bác sĩ kê đơn thuốc.
+- **Cảnh báo inline khi kê đơn**: Hiển thị cảnh báo trực tiếp trong cửa sổ kê đơn khi số lượng kê vượt quá tồn kho.
+- **Thống kê thuốc**: Thêm nút "💊 Báo Cáo Thuốc" trong tab Thống Kê - xem thuốc dùng nhiều nhất theo tháng hoặc tất cả thời gian.
+- **Backend**: 3 hàm mới: `update_medicine_stock_db()`, `get_low_stock_medicines_db()`, `get_medicine_usage_stats_db()`.
+
+### Changed
+- **Kho Thuốc UI**: Thêm 2 cột "Tồn kho" và "Tối thiểu" vào bảng danh sách thuốc. Dòng thuốc hết kho highlight đỏ, sắp hết highlight vàng.
+- **Form thuốc**: Thêm 2 ô nhập liệu "Tồn kho hiện tại" và "Tồn tối thiểu (Ngưỡng cảnh báo)".
+- **Kê đơn UI**: Bảng chọn thuốc hiển thị cột "Tồn kho" với màu cảnh báo tương ứng.
+
 ## [5.0.6] - 2026-03-02
 ### Changed
 - Cải thiện UI: Đơn giản hóa cửa sổ "Sửa chẩn đoán", loại bỏ ô sửa thuốc bằng Text để tránh xung đột dữ liệu với hệ thống Đơn thuốc mới. 

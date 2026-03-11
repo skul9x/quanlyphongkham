@@ -84,10 +84,11 @@ class PrescriptionWindow(QMainWindow):
         
         self.catalog_tree = QTreeWidget()
         self.catalog_tree.setObjectName("CatalogTree")
-        self.catalog_tree.setHeaderLabels(["Tên thuốc", "Quy cách", "Giá"])
+        self.catalog_tree.setHeaderLabels(["Tên thuốc", "Quy cách", "Tồn kho", "Giá"])
         self.catalog_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.catalog_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.catalog_tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.catalog_tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         
         self.catalog_tree.itemDoubleClicked.connect(self.add_selected_from_catalog)
         left_layout.addWidget(self.catalog_tree)
@@ -202,12 +203,33 @@ class PrescriptionWindow(QMainWindow):
         t = utils.remove_diacritics(text.lower())
         
         count = 0
+        from PySide6.QtGui import QColor, QFont
+        bold_font = QFont()
+        bold_font.setBold(True)
+        
         for med in self.all_medicines:
-            name_norm = utils.remove_diacritics(med['name'].lower())
+            med_dict = dict(med)
+            name_norm = utils.remove_diacritics(med_dict['name'].lower())
             if text == "" or t in name_norm:
-                # FIX: Hien thi gia voi dinh dang thap phan neu can thiet, khong lam tron
-                item = QTreeWidgetItem([med['name'], med['packing_spec'] or "", "{:,.2f}".format(med['price'] or 0).rstrip('0').rstrip('.')])
-                item.setData(0, Qt.ItemDataRole.UserRole, med)
+                stock = med_dict.get('stock_quantity', 0)
+                
+                # --- v5.1.0 Highlighting in Catalog ---
+                item = QTreeWidgetItem([
+                    med_dict['name'], 
+                    med_dict['packing_spec'] or "", 
+                    str(stock), 
+                    "{:,.2f}".format(med['price'] or 0).rstrip('0').rstrip('.')
+                ])
+                if stock <= 0:
+                    item.setText(2, f"❌ {stock}")
+                    item.setForeground(2, QColor("#B91C1C"))
+                    item.setFont(2, bold_font)
+                elif stock <= med_dict.get('min_stock_level', 5):
+                    item.setText(2, f"⚠️ {stock}")
+                    item.setForeground(2, QColor("#B45309"))
+                    item.setFont(2, bold_font)
+                    
+                item.setData(0, Qt.ItemDataRole.UserRole, med_dict)
                 self.catalog_tree.addTopLevelItem(item)
                 count += 1
                 if count > 50: break 
@@ -231,16 +253,19 @@ class PrescriptionWindow(QMainWindow):
                 self.update_qty(i, new_qty) 
                 return
 
+        med_dict = dict(med) if not isinstance(med, dict) else med
         self.prescription_items.append({
-            'id': med['id'],
-            'name': med['name'],
-            'spec': med['packing_spec'] or "",
-            'price': med['price'] or 0,
+            'id': med_dict['id'],
+            'name': med_dict['name'],
+            'spec': med_dict['packing_spec'] or "",
+            'price': med_dict['price'] or 0,
+            'stock': med_dict.get('stock_quantity', 0), # v5.1.0 Track stock
             'qty': 1
         })
         self.rebuild_cart_tree()
 
     def update_qty(self, index, new_val):
+        """Update quantity, check bounds, and refresh warnings visually."""
         if index < 0 or index >= len(self.prescription_items): return
 
         item_data = self.prescription_items[index]
@@ -253,8 +278,18 @@ class PrescriptionWindow(QMainWindow):
             tree_item = self.cart_tree.topLevelItem(index)
             if tree_item:
                 subtotal = new_val * item_data['price']
-                # FIX: Hien thi thanh tien voi dinh dang thap phan
                 tree_item.setText(3, "{:,.2f}".format(subtotal).rstrip('0').rstrip('.'))
+                
+                # --- v5.1.0 Inline Warning Update ---
+                from PySide6.QtGui import QColor, QFont
+                stock = item_data.get('stock', 0)
+                if new_val > stock:
+                    tree_item.setText(0, f"⚠️ {item_data['name']} (Chỉ còn {stock})")
+                    tree_item.setForeground(0, QColor("#DC2626"))  # Red text
+                else:
+                    tree_item.setText(0, item_data['name'])
+                    # Reset default color correctly using empty QColor
+                    tree_item.setForeground(0, QColor())
                 
                 widget = self.cart_tree.itemWidget(tree_item, 1)
                 if widget:
@@ -273,11 +308,20 @@ class PrescriptionWindow(QMainWindow):
     def rebuild_cart_tree(self):
         self.cart_tree.clear()
         
+        from PySide6.QtGui import QColor
+        
         for i, item in enumerate(self.prescription_items):
             subtotal = item['qty'] * item['price']
             
             tree_item = QTreeWidgetItem(self.cart_tree)
-            tree_item.setText(0, item['name'])
+            
+            # --- v5.1.0 Initial Inline Warning ---
+            stock = item.get('stock', 0)
+            if item['qty'] > stock:
+                tree_item.setText(0, f"⚠️ {item['name']} (Chỉ còn {stock})")
+                tree_item.setForeground(0, QColor("#DC2626")) # Red text
+            else:
+                tree_item.setText(0, item['name'])
             
             container = QWidget()
             container.setObjectName("SpinBoxContainer")

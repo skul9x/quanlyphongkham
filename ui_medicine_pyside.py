@@ -53,6 +53,27 @@ class MedicineTab(QWidget):
         header_row.addWidget(btn_import)
         left_layout.addLayout(header_row)
         
+        # --- [v5.1.0] Alert Banner for Low Stock ---
+        self.alert_banner = QFrame()
+        self.alert_banner.setObjectName("AlertBanner")
+        self.alert_banner.setStyleSheet("""
+            QFrame#AlertBanner {
+                background-color: #FEF2F2;
+                border: 1px solid #F87171;
+                border-radius: 6px;
+                padding: 8px 12px;
+                margin-bottom: 15px;
+            }
+        """)
+        alert_layout = QHBoxLayout(self.alert_banner)
+        alert_layout.setContentsMargins(10, 5, 10, 5)
+        self.alert_label = QLabel()
+        self.alert_label.setStyleSheet("color: #991B1B; font-weight: bold; font-size: 14px;")
+        alert_layout.addWidget(self.alert_label)
+        self.alert_banner.hide()  # Hidden by default
+        left_layout.addWidget(self.alert_banner)
+        # -------------------------------------------
+        
         self.search_input = QLineEdit()
         self.search_input.setObjectName("SearchInput")
         self.search_input.setPlaceholderText("🔍 Tìm tên thuốc...")
@@ -64,10 +85,12 @@ class MedicineTab(QWidget):
         
         self.tree = QTreeWidget()
         self.tree.setObjectName("MedicineTree")
-        self.tree.setHeaderLabels(["Tên thuốc", "Quy cách", "Giá bán"])
+        self.tree.setHeaderLabels(["Tên thuốc", "Quy cách", "Giá bán", "Tồn kho", "Tối thiểu"])
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.header().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.setIndentation(0)
         self.tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         
@@ -109,6 +132,18 @@ class MedicineTab(QWidget):
         self.price_edit.setObjectName("ThemedLineEdit")
         self.price_edit.setPlaceholderText("0")
         form_layout.addWidget(self.create_labeled_input("Đơn giá (VNĐ)", self.price_edit))
+        
+        # --- [v5.1.0] Inventory Inputs ---
+        self.stock_edit = QLineEdit()
+        self.stock_edit.setObjectName("ThemedLineEdit")
+        self.stock_edit.setPlaceholderText("0")
+        form_layout.addWidget(self.create_labeled_input("Tồn kho hiện tại", self.stock_edit))
+        
+        self.min_stock_edit = QLineEdit()
+        self.min_stock_edit.setObjectName("ThemedLineEdit")
+        self.min_stock_edit.setPlaceholderText("5")
+        form_layout.addWidget(self.create_labeled_input("Tồn tối thiểu (Ngưỡng cảnh báo)", self.min_stock_edit))
+        # ---------------------------------
         
         form_layout.addStretch()
         
@@ -228,16 +263,79 @@ class MedicineTab(QWidget):
 
     def populate_tree(self, data):
         self.tree.clear()
+        
+        low_stock_count = 0
+        out_of_stock_count = 0
+        
         if not data:
             self.stack_list.setCurrentWidget(self.empty_state)
+            self.alert_banner.hide()
         else:
             self.stack_list.setCurrentWidget(self.tree)
+            from PySide6.QtGui import QColor, QFont
+            from PySide6.QtCore import Qt
+            
+            bold_font = QFont()
+            bold_font.setBold(True)
+            
             for med in data:
                 item = QTreeWidgetItem(self.tree)
                 item.setText(0, med['name'])
                 item.setText(1, med['packing_spec'] or "")
                 item.setText(2, "{:,.2f}".format(med['price'] or 0).rstrip('0').rstrip('.') if med['price'] else "0")
+                
+                # sqlite3.Row doesn't support .get(), convert to dict first
+                med_dict = dict(med)
+                
+                raw_stock = med_dict.get('stock_quantity')
+                stock = int(raw_stock) if raw_stock is not None else 0
+                
+                raw_min = med_dict.get('min_stock_level')
+                min_stock = int(raw_min) if raw_min is not None else 5
+                
+                # --- v5.1.0 Highlighting Logic ---
+                if stock <= 0:
+                    out_of_stock_count += 1
+                    item.setText(3, f"❌ {stock} (Hết)")
+                    item.setFont(3, bold_font)
+                    item.setForeground(3, QColor("#B91C1C"))  # Dark Red text
+                    # Target background color: #FEF2F2
+                    for i in range(5): item.setBackground(i, QColor(254, 242, 242))
+                elif stock <= min_stock:
+                    low_stock_count += 1
+                    item.setText(3, f"⚠️ {stock}")
+                    item.setFont(3, bold_font)
+                    item.setForeground(3, QColor("#B45309"))  # Dark Amber text
+                    # Target background color: #FFFBEB
+                    for i in range(5): item.setBackground(i, QColor(255, 251, 235))
+                else:
+                    item.setText(3, str(stock))
+                
+                item.setText(4, str(min_stock))
+                item.setTextAlignment(3, Qt.AlignmentFlag.AlignCenter)
+                item.setTextAlignment(4, Qt.AlignmentFlag.AlignCenter)
                 item.setData(0, Qt.ItemDataRole.UserRole, med['id'])
+                
+            # Update Banner
+            total_warnings = low_stock_count + out_of_stock_count
+            if total_warnings > 0:
+                parts = []
+                if out_of_stock_count > 0:
+                    parts.append(f"{out_of_stock_count} loại đã HẾT KHO")
+                if low_stock_count > 0:
+                    parts.append(f"{low_stock_count} loại SẮP HẾT")
+                
+                self.alert_label.setText(f"⚠️ CẢNH BÁO: " + " và ".join(parts) + "!")
+                if out_of_stock_count > 0:
+                    self.alert_banner.setStyleSheet("QFrame#AlertBanner { background-color: #FEF2F2; border: 1px solid #F87171; border-radius: 6px; padding: 8px 12px; margin-bottom: 15px; }")
+                    self.alert_label.setStyleSheet("color: #991B1B; font-weight: bold; font-size: 14px;")
+                else:
+                    self.alert_banner.setStyleSheet("QFrame#AlertBanner { background-color: #FFFBEB; border: 1px solid #FCD34D; border-radius: 6px; padding: 8px 12px; margin-bottom: 15px; }")
+                    self.alert_label.setStyleSheet("color: #92400E; font-weight: bold; font-size: 14px;")
+                
+                self.alert_banner.show()
+            else:
+                self.alert_banner.hide()
 
     def filter_medicines(self, text):
         t = text.lower()
@@ -262,6 +360,13 @@ class MedicineTab(QWidget):
             price_val = med['price'] if med['price'] is not None else 0
             self.price_edit.setText(f"{price_val:g}")
             
+            # Inventory fields - [FIX] sqlite3.Row doesn't support .get(), must cast to dict
+            med_dict = dict(med)
+            stock_val = med_dict.get('stock_quantity', 0) or 0
+            min_val = med_dict.get('min_stock_level', 5) or 5
+            self.stock_edit.setText(str(int(stock_val)))
+            self.min_stock_edit.setText(str(int(min_val)))
+            
             self.btn_add.hide()
             self.btn_update.show()
             self.edit_actions_container.show()
@@ -275,6 +380,8 @@ class MedicineTab(QWidget):
         self.name_edit.clear()
         self.spec_edit.clear()
         self.price_edit.clear()
+        self.stock_edit.clear()
+        self.min_stock_edit.clear()
         self.tree.clearSelection()
         
         self.btn_add.show()
@@ -282,11 +389,15 @@ class MedicineTab(QWidget):
         self.edit_actions_container.hide()
         set_validation_error(self.name_edit, False)
         set_validation_error(self.price_edit, False)
+        set_validation_error(self.stock_edit, False)
+        set_validation_error(self.min_stock_edit, False)
 
     def get_form_data(self):
         name = self.name_edit.text().strip()
         spec = self.spec_edit.text().strip()
         price_str = self.price_edit.text().strip()
+        stock_str = self.stock_edit.text().strip()
+        min_stock_str = self.min_stock_edit.text().strip()
         
         valid = True
         if not name:
@@ -298,25 +409,34 @@ class MedicineTab(QWidget):
         price = 0.0
         try:
             price = float(price_str) if price_str else 0.0
-            
-            # Range validation: prevent negative, inf, nan
-            if price < 0:
-                raise ValueError("Giá không được âm")
-            if price > 1_000_000_000:  # Max 1 tỷ VNĐ
-                raise ValueError("Giá quá lớn")
-            if math.isinf(price) or math.isnan(price):
-                raise ValueError("Giá không hợp lệ")
-                
+            if price < 0 or math.isinf(price) or math.isnan(price) or price > 1_000_000_000:
+                raise ValueError()
             set_validation_error(self.price_edit, False)
         except ValueError:
             set_validation_error(self.price_edit, True)
+            valid = False
+            
+        stock = 0
+        try:
+            stock = int(stock_str) if stock_str else 0
+            set_validation_error(self.stock_edit, False)
+        except ValueError:
+            set_validation_error(self.stock_edit, True)
+            valid = False
+            
+        min_stock = 5
+        try:
+            min_stock = int(min_stock_str) if min_stock_str else 5
+            set_validation_error(self.min_stock_edit, False)
+        except ValueError:
+            set_validation_error(self.min_stock_edit, True)
             valid = False
             
         if not valid:
             QMessageBox.warning(self, "Lỗi nhập liệu", "Vui lòng kiểm tra các trường bôi đỏ.")
             return None
             
-        return name, spec, price
+        return name, spec, price, stock, min_stock
 
     def add_medicine(self):
         print("[UI] Adding medicine...")
@@ -363,7 +483,8 @@ class MedicineTab(QWidget):
             if ex and ex['id'] != mid:
                 return "DUPLICATE"
             print("[WORKER] Updating DB...")
-            return database.update_medicine_db(mid, *d)
+            # Unpack form data (d[0]=name, d[1]=spec, d[2]=price, d[3]=stock, d[4]=min)
+            return database.update_medicine_db(mid, d[0], d[1], d[2], d[3], d[4])
             
         def on_done(res):
             print(f"[UI] Update result: {res}")

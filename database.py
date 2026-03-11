@@ -149,6 +149,18 @@ def initialize_database():
             print("[DB] Migrating: Adding diagnosis column to prescriptions_header...")
             c.execute("ALTER TABLE prescriptions_header ADD COLUMN diagnosis TEXT")
         
+        # --- Migration v5.1.0: Add stock columns to medicines ---
+        c.execute("PRAGMA table_info(medicines)")
+        med_columns = [col[1] for col in c.fetchall()]
+        
+        if 'stock_quantity' not in med_columns:
+            print("[DB] Migrating: Adding stock_quantity column to medicines...")
+            c.execute("ALTER TABLE medicines ADD COLUMN stock_quantity INTEGER DEFAULT 0")
+        
+        if 'min_stock_level' not in med_columns:
+            print("[DB] Migrating: Adding min_stock_level column to medicines...")
+            c.execute("ALTER TABLE medicines ADD COLUMN min_stock_level INTEGER DEFAULT 5")
+        
         conn.commit()
         
         # --- Migration: Parse legacy medical_history and migrate to prescriptions ---
@@ -456,7 +468,7 @@ def get_all_medicines_db():
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT id, name, packing_spec, price FROM medicines ORDER BY name COLLATE NOCASE")
+        c.execute("SELECT id, name, packing_spec, price, stock_quantity, min_stock_level FROM medicines ORDER BY name COLLATE NOCASE")
         return c.fetchall()
     except sqlite3.Error as e:
         print(f"[DB ERROR] get_all_medicines_db: {e}")
@@ -464,13 +476,14 @@ def get_all_medicines_db():
     finally:
         if conn: conn.close()
 
-def add_medicine_db(name, spec, price):
-    print(f"[DB] add_medicine_db called: {name}, {spec}, {price}")
+def add_medicine_db(name, spec, price, stock_quantity=0, min_stock_level=5):
+    print(f"[DB] add_medicine_db called: {name}, {spec}, {price}, stock={stock_quantity}, min={min_stock_level}")
     conn = None
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO medicines (name, packing_spec, price) VALUES (?, ?, ?)", (name, spec, price))
+        c.execute("INSERT INTO medicines (name, packing_spec, price, stock_quantity, min_stock_level) VALUES (?, ?, ?, ?, ?)",
+                  (name, spec, price, stock_quantity, min_stock_level))
         new_id = c.lastrowid
         
         c.execute("SELECT * FROM medicines WHERE id=?", (new_id,))
@@ -490,13 +503,17 @@ def add_medicine_db(name, spec, price):
     finally:
         if conn: conn.close()
 
-def update_medicine_db(mid, name, spec, price):
-    print(f"[DB] update_medicine_db called: ID={mid}, {name}, {spec}, {price}")
+def update_medicine_db(mid, name, spec, price, stock_quantity=None, min_stock_level=None):
+    print(f"[DB] update_medicine_db called: ID={mid}, {name}, {spec}, {price}, stock={stock_quantity}, min={min_stock_level}")
     conn = None
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("UPDATE medicines SET name=?, packing_spec=?, price=? WHERE id=?", (name, spec, price, mid))
+        if stock_quantity is not None and min_stock_level is not None:
+            c.execute("UPDATE medicines SET name=?, packing_spec=?, price=?, stock_quantity=?, min_stock_level=? WHERE id=?",
+                      (name, spec, price, stock_quantity, min_stock_level, mid))
+        else:
+            c.execute("UPDATE medicines SET name=?, packing_spec=?, price=? WHERE id=?", (name, spec, price, mid))
         
         c.execute("SELECT * FROM medicines WHERE id=?", (mid,))
         updated_med = c.fetchone()
@@ -543,7 +560,7 @@ def get_medicine_by_id_db(mid):
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT id, name, packing_spec, price FROM medicines WHERE id=?", (mid,))
+        c.execute("SELECT id, name, packing_spec, price, stock_quantity, min_stock_level FROM medicines WHERE id=?", (mid,))
         return c.fetchone()
     except sqlite3.Error:
         return None
@@ -555,7 +572,7 @@ def get_medicine_by_name_db(name):
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT id, name, packing_spec, price FROM medicines WHERE LOWER(name) = LOWER(?)", (name.strip(),))
+        c.execute("SELECT id, name, packing_spec, price, stock_quantity, min_stock_level FROM medicines WHERE LOWER(name) = LOWER(?)", (name.strip(),))
         return c.fetchone()
     except sqlite3.Error:
         return None
@@ -571,6 +588,99 @@ def is_medicine_in_use(mid):
         return c.fetchone() is not None
     except sqlite3.Error:
         return True
+    finally:
+        if conn: conn.close()
+
+
+# --- Inventory Management (v5.1.0) ---
+
+def update_medicine_stock_db(medicine_id, new_quantity):
+    """Update stock quantity for a medicine directly (manual stock adjustment)."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("UPDATE medicines SET stock_quantity = ? WHERE id = ?", (new_quantity, medicine_id))
+        
+        c.execute("SELECT * FROM medicines WHERE id=?", (medicine_id,))
+        updated_med = c.fetchone()
+        
+        conn.commit()
+        
+        if updated_med:
+            sync_manager.sync_medicine(updated_med)
+        
+        print(f"[DB] Updated stock for medicine {medicine_id} to {new_quantity}")
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] update_medicine_stock_db: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+
+def get_low_stock_medicines_db():
+    """Get medicines where stock_quantity <= min_stock_level."""
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        c.execute("""
+            SELECT id, name, packing_spec, price, stock_quantity, min_stock_level
+            FROM medicines
+            WHERE stock_quantity <= min_stock_level
+            ORDER BY stock_quantity ASC
+        """)
+        return c.fetchall()
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] get_low_stock_medicines_db: {e}")
+        return []
+    finally:
+        if conn: conn.close()
+
+
+def get_medicine_usage_stats_db(year_month=None):
+    """
+    Get medicine usage statistics (total quantity used and total revenue).
+    
+    Args:
+        year_month: Optional filter like '2026-03'. If None, returns all-time stats.
+    
+    Returns:
+        List of rows: medicine_name, total_quantity, total_amount
+    """
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        if year_month:
+            c.execute("""
+                SELECT m.name as medicine_name,
+                       SUM(pd.quantity) as total_quantity,
+                       SUM(pd.quantity * pd.unit_price) as total_amount
+                FROM prescription_details pd
+                JOIN medicines m ON pd.medicine_id = m.id
+                JOIN prescriptions_header ph ON pd.prescription_header_id = ph.id
+                WHERE strftime('%Y-%m', ph.prescription_date) = ?
+                GROUP BY pd.medicine_id
+                ORDER BY total_quantity DESC
+            """, (year_month,))
+        else:
+            c.execute("""
+                SELECT m.name as medicine_name,
+                       SUM(pd.quantity) as total_quantity,
+                       SUM(pd.quantity * pd.unit_price) as total_amount
+                FROM prescription_details pd
+                JOIN medicines m ON pd.medicine_id = m.id
+                GROUP BY pd.medicine_id
+                ORDER BY total_quantity DESC
+            """)
+        
+        return c.fetchall()
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] get_medicine_usage_stats_db: {e}")
+        return []
     finally:
         if conn: conn.close()
 
@@ -920,13 +1030,17 @@ def create_prescription_db(patient_id, diagnosis, items, notes=""):
         
         prescription_id = c.lastrowid
         
-        # Insert prescription details
+        # Insert prescription details + deduct stock
         for item in items:
             c.execute("""
                 INSERT INTO prescription_details 
                 (prescription_header_id, medicine_id, quantity, unit_price)
                 VALUES (?, ?, ?, ?)
             """, (prescription_id, item['medicine_id'], item['quantity'], item['unit_price']))
+            
+            # [v5.1.0] Deduct stock in the same transaction
+            c.execute("UPDATE medicines SET stock_quantity = stock_quantity - ? WHERE id = ?",
+                      (item['quantity'], item['medicine_id']))
         
         # Update patient's diagnosis field with latest
         c.execute("UPDATE patients SET diagnosis = ? WHERE id = ?", (diagnosis, patient_id))
@@ -1007,13 +1121,17 @@ def append_items_to_prescription_db(prescription_id, items):
         # Calculate additional amount
         added_amount = sum(item.get('quantity', 0) * item.get('unit_price', 0) for item in items)
         
-        # Insert new detail rows
+        # Insert new detail rows + deduct stock
         for item in items:
             c.execute("""
                 INSERT INTO prescription_details
                 (prescription_header_id, medicine_id, quantity, unit_price)
                 VALUES (?, ?, ?, ?)
             """, (prescription_id, item['medicine_id'], item['quantity'], item['unit_price']))
+            
+            # [v5.1.0] Deduct stock in the same transaction
+            c.execute("UPDATE medicines SET stock_quantity = stock_quantity - ? WHERE id = ?",
+                      (item['quantity'], item['medicine_id']))
         
         # Update total_amount on header
         c.execute("""
@@ -1226,12 +1344,14 @@ def insert_medicine_from_cloud(data):
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        c.execute('''INSERT OR REPLACE INTO medicines (id, name, packing_spec, price)
-                     VALUES (?, ?, ?, ?)''',
+        c.execute('''INSERT OR REPLACE INTO medicines (id, name, packing_spec, price, stock_quantity, min_stock_level)
+                     VALUES (?, ?, ?, ?, ?, ?)''',
                   (data.get('id'),
                    data.get('name'),
                    data.get('packing_spec'),
-                   data.get('price')))
+                   data.get('price'),
+                   data.get('stock_quantity', 0),
+                   data.get('min_stock_level', 5)))
         conn.commit()
         return True
     except sqlite3.Error as e:

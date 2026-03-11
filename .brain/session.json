@@ -1,36 +1,42 @@
 {
-    "updated_at": "2026-02-23T15:50:00Z",
+    "updated_at": "2026-03-11T15:15:00Z",
     "working_on": {
-        "feature": "Custom Consultation Fee & Deployment Scripts",
-        "task": "Completed implementation and packaging for Linux",
+        "feature": "Medication Inventory Management (v5.1.0)",
+        "task": "Completed implementation (Local-Only), UI, and Testing",
         "status": "done",
         "files": [
-            "ui_help_pyside.py",
-            "config.py",
-            "main_pyside.py",
+            "database.py",
+            "ui_medicine_pyside.py",
+            "ui_stats_pyside.py",
             "ui_prescription_window_pyside.py",
-            "build_deb.sh",
-            "install_shortcut.sh",
-            "donggoi_linux.txt"
+            "sync_manager.py",
+            "config.py",
+            "CHANGELOG.md"
         ],
         "blockers": [],
-        "notes": "Feature allows users to set and persist a custom fee added to prescriptions."
+        "notes": "Feature adds stock tracking, low stock alerts, and usage stats. Local SQLite schema expanded; Cloud sync updated to filter out new columns."
     },
     "pending_tasks": [
-        { "task": "Verify .deb package installation on a clean system", "priority": "medium" },
-        { "task": "Add more settings like Doctor Name or Clinic Name to UI", "priority": "low" }
+        { "task": "Verify Linux .deb build for v5.1.0", "priority": "medium" },
+        { "task": "Update documentation for local inventory management for clinic staff", "priority": "low" }
     ],
     "recent_changes": [
-        { "timestamp": "2026-02-23T15:30:00Z", "type": "feature", "description": "Custom Consultation Fee setting", "files": ["ui_help_pyside.py", "config.py", "main_pyside.py"] },
-        { "timestamp": "2026-02-23T15:40:00Z", "type": "packaging", "description": "Linux .deb build script", "files": ["build_deb.sh"] },
-        { "timestamp": "2026-02-23T15:10:00Z", "type": "bugfix", "description": "Fix Cloud Sync FK Constraint Error", "files": ["sync_manager.py", "database.py"] }
+        { "timestamp": "2026-03-11T12:00:00Z", "type": "feature", "description": "Medication Inventory (Local-Only)", "files": ["database.py", "ui_medicine_pyside.py", "ui_prescription_window_pyside.py"] },
+        { "timestamp": "2026-03-11T12:30:00Z", "type": "feature", "description": "Medicine Usage Stats filter", "files": ["ui_stats_pyside.py"] },
+        { "timestamp": "2026-03-11T12:40:00Z", "type": "sync", "description": "Cloud sync filtering for local-only columns", "files": ["sync_manager.py"] },
+        { "timestamp": "2026-03-11T18:30:00Z", "type": "bugfix", "description": "Fix prescription block due to medical_history parsing vs diagnosis field", "files": ["ui_patient_pyside.py"] },
+        { "timestamp": "2026-03-11T18:35:00Z", "type": "bugfix", "description": "Fix sqlite3.Row .get() crash in prescription window", "files": ["ui_prescription_window_pyside.py", "database.py"] }
     ],
     "errors_encountered": [
-        { "error": "AttributeError: 'sqlite3.Row' object has no attribute 'get'", "solution": "Convert Row to dict before calling .get()", "resolved": true },
-        { "error": "Postgrest APIError 23503 (FK Constraint)", "solution": "Ensure medicines are synced before prescriptions in incremental_sync", "resolved": true }
+        { "error": "ModuleNotFoundError: No module named 'supabase'", "solution": "Run tests using basic mocks to verify logic when lib is missing in environment", "resolved": true },
+        { "error": "Externally managed environment (PEP 668)", "solution": "Use venv or --break-system-packages (venv recommended)", "resolved": true },
+        { "error": "TypeError: '<=' not supported between instances of 'NoneType' and 'int'", "solution": "Normalize NULL database values to 0 before comparison in UI loop", "resolved": true },
+        { "error": "AttributeError: 'sqlite3.Row' object has no attribute 'get'", "solution": "Explicitly cast sqlite3.Row to dict() before using .get() for optional fields", "resolved": true },
+        { "error": "PyInstaller not found in venv during packaging", "solution": "Installed pyinstaller into venv and updated requirements.txt", "resolved": true },
+        { "error": "Cannot prescribe because app says 'Thiếu chẩn đoán' even when diagnosis exists", "solution": "Check the dedicated diagnosis database field first before falling back to parsing legacy medical_history text", "resolved": true }
     ],
     "decisions_made": [
-        { "decision": "Store consultation_fee in settings.json", "reason": "Consistent with other UI settings like theme and title" },
-        { "decision": "One-Way Push (Local as Master)", "reason": "Prevent deleted data from 'reviving' from Cloud" }
+        { "decision": "Local-Only Inventory", "reason": "User explicitly declined modifying Supabase Cloud schema" },
+        { "decision": "Inline Red Warning in Cart", "reason": "Better visibility for doctors than a blocking dialog when out of stock" }
     ]
 }

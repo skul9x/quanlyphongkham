@@ -51,6 +51,7 @@ class StatsTab(QWidget):
         self.btn_age = self.create_filter_btn("👶 Theo Độ Tuổi", "FilterButtonAge")
         self.btn_gender = self.create_filter_btn("⚧ Giới Tính", "FilterButtonGender")
         self.btn_loc = self.create_filter_btn("📍 Địa Điểm", "FilterButtonLocation")
+        self.btn_med = self.create_filter_btn("💊 Báo Cáo Thuốc", "FilterButtonMedicine") # v5.1.0
 
         self.btn_group = QButtonGroup(self)
         self.btn_group.addButton(self.btn_day)
@@ -60,6 +61,7 @@ class StatsTab(QWidget):
         self.btn_group.addButton(self.btn_age)
         self.btn_group.addButton(self.btn_gender)
         self.btn_group.addButton(self.btn_loc)
+        self.btn_group.addButton(self.btn_med)
 
         self.btn_day.clicked.connect(self.stats_day)
         self.btn_week.clicked.connect(self.stats_week)
@@ -68,18 +70,23 @@ class StatsTab(QWidget):
         self.btn_age.clicked.connect(self.stats_age)
         self.btn_gender.clicked.connect(self.stats_gender)
         self.btn_loc.clicked.connect(self.stats_location)
+        self.btn_med.clicked.connect(self.stats_medicine_usage)
 
         btn_layout.addWidget(self.btn_day)
         btn_layout.addWidget(self.btn_week)
         btn_layout.addWidget(self.btn_month)
         btn_layout.addWidget(self.btn_year)
-        btn_layout.addWidget(self.btn_age)
-        btn_layout.addSpacing(10)
-        btn_layout.addWidget(self.btn_gender)
-        btn_layout.addWidget(self.btn_loc)
-        btn_layout.addStretch()
+        
+        btn_layout2 = QHBoxLayout()
+        btn_layout2.setSpacing(10)
+        btn_layout2.addWidget(self.btn_age)
+        btn_layout2.addWidget(self.btn_gender)
+        btn_layout2.addWidget(self.btn_loc)
+        btn_layout2.addWidget(self.btn_med)
+        btn_layout2.addStretch()
         
         filter_layout.addLayout(btn_layout)
+        filter_layout.addLayout(btn_layout2)
         
         self.dynamic_filter_area = QWidget()
         self.dynamic_layout = QHBoxLayout(self.dynamic_filter_area)
@@ -140,12 +147,20 @@ class StatsTab(QWidget):
                     pass
         
         if len(data) > 0:
-            t_item = QTreeWidgetItem([total_label, str(total)])
-            t_item.setTextAlignment(1, Qt.AlignmentFlag.AlignCenter)
-            font = t_item.font(0)
-            font.setBold(True)
-            t_item.setFont(0, font)
-            t_item.setFont(1, font)
+            if len(headers) == 3:  # Thống kê thuốc có cấu trúc cột khác
+                t_item = QTreeWidgetItem([total_label, "", "{:,.2f}".format(total).rstrip('0').rstrip('.')])
+                t_item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight)
+                for i in range(3):
+                    font = t_item.font(i)
+                    font.setBold(True)
+                    t_item.setFont(i, font)
+            else:
+                t_item = QTreeWidgetItem([total_label, str(total)])
+                t_item.setTextAlignment(1, Qt.AlignmentFlag.AlignCenter)
+                font = t_item.font(0)
+                font.setBold(True)
+                t_item.setFont(0, font)
+                t_item.setFont(1, font)
             self.tree.addTopLevelItem(t_item)
 
     def _cleanup_worker(self, worker):
@@ -228,9 +243,104 @@ class StatsTab(QWidget):
                 self.overlay.hide_loading()
 
         worker.signals.result.connect(on_loaded)
+        worker.signals.result.connect(on_loaded)
         worker.signals.error.connect(on_error) 
         worker.signals.finished.connect(lambda: self._cleanup_worker(worker))
         self.threadpool.start(worker)
+
+    # --- [v5.1.0] Medicine Usage Stats ---
+    def stats_medicine_usage(self):
+        req_id = self.get_new_request_id()
+        self.clear_dynamic_filters()
+        self.threadpool.clear()
+        
+        # Sửa lại số lượng cột của tree
+        self.tree.setColumnCount(3)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.tree.header().resizeSection(1, 150)
+        self.tree.header().resizeSection(2, 200)
+
+        def setup_med_ui():
+            if not self.is_valid_request(req_id): return
+            
+            lbl = QLabel("Thời gian:")
+            lbl.setObjectName("FormLabel")
+            combo = QComboBox()
+            combo.setObjectName("ThemedComboBox")
+            combo.setFixedWidth(200)
+            
+            combo.addItem("Tất cả thời gian", None)
+            
+            display_months = []
+            if self.available_months:
+                for m in self.available_months:
+                    display_text = datetime.strptime(m, '%Y-%m').strftime('%m/%Y')
+                    combo.addItem(f"Tháng {display_text}", m)
+            
+            def on_change(idx):
+                sub_req_id = self.get_new_request_id()
+                self.overlay.show_loading()
+                self.tree.clear()
+                self.threadpool.clear()
+                
+                selected_val = combo.itemData(idx)
+                
+                def load_data():
+                    return database.get_medicine_usage_stats_db(selected_val)
+                    
+                worker = Worker(load_data)
+                worker.setAutoDelete(False)
+                self._active_workers.add(worker)
+                
+                def f(d):
+                    if self.is_valid_request(sub_req_id):
+                        rows = []
+                        if d:
+                            for r in d:
+                                amt = r['total_amount'] if r['total_amount'] else 0
+                                # Chuyển amount sang dạng formatted string, giữ float cho total row
+                                fmt_amt = "{:,.2f}".format(amt).rstrip('0').rstrip('.')
+                                item = QTreeWidgetItem([r['medicine_name'], str(r['total_quantity']), fmt_amt])
+                                item.setTextAlignment(1, Qt.AlignmentFlag.AlignCenter)
+                                item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight)
+                                self.tree.addTopLevelItem(item)
+                                rows.append((r['medicine_name'], amt)) # Trả về số cho tổng
+                        
+                        # Không gọi self.populate_tree để làm total tuỳ chỉnh
+                        total = sum([r[1] for r in rows if isinstance(r[1], (int, float))])
+                        if rows:
+                            t_item = QTreeWidgetItem(["TỔNG DOANH THU", "", "{:,.2f}".format(total).rstrip('0').rstrip('.')])
+                            t_item.setTextAlignment(2, Qt.AlignmentFlag.AlignRight)
+                            for i in range(3):
+                                font = t_item.font(i)
+                                font.setBold(True)
+                                t_item.setFont(i, font)
+                            self.tree.addTopLevelItem(t_item)
+                            
+                        self.tree.setHeaderLabels(["Tên thuốc", "SL Sử dụng", "Doanh thu (VNĐ)"])
+                        self.overlay.hide_loading()
+                        
+                def e(err):
+                    if self.is_valid_request(sub_req_id):
+                        self.overlay.hide_loading()
+                        QMessageBox.warning(self, "Lỗi", f"Đã xảy ra lỗi: {err[1]}")
+                        
+                worker.signals.result.connect(f)
+                worker.signals.error.connect(e)
+                worker.signals.finished.connect(lambda: self._cleanup_worker(worker))
+                self.threadpool.start(worker)
+
+            combo.currentIndexChanged.connect(on_change)
+            self.dynamic_layout.addWidget(lbl)
+            self.dynamic_layout.addWidget(combo)
+            self.dynamic_layout.addStretch()
+            
+            on_change(0) # Trigger first load
+
+        self.fetch_time_data(setup_med_ui, req_id)
+    # -----------------------------------------------
 
     def stats_day(self):
         req_id = self.get_new_request_id()
