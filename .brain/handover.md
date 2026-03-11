@@ -1,32 +1,36 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 HANDOVER DOCUMENT
+📋 HANDOVER DOCUMENT (v5.1.1)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📍 Đang làm: Sửa lỗi luồng Kê đơn thuốc (Diagnosis Check & Stock Crash)
-🔢 Đến bước: Đã hoàn thiện và test tay an toàn.
+📍 Đang làm: Hoàn tất Bộ lọc Kho Thuốc & Sửa lỗi hệ thống
+🔢 Đến bước: Đã hoàn thiện mã nguồn, cập nhật tài liệu và test tay thành công.
 
 ✅ ĐÃ XONG:
-   - Sửa lỗi chặn kê đơn do cơ chế nhận diện chẩn đoán sai nguồn. Luôn tìm `diagnosis` field trước khi parse `medical_history`.
-   - Bổ sung validation an toàn cho `sqlite3.Row` trên PySide UI: phải convert sang `dict(row)` trước khi dùng `get()`. Fix crash cho màn hình đơn thuốc.
-   - Viết script migration an toàn tạo bảng/cột `stock_quantity`, `min_stock_level`.
-   - Lưu lại kiến thức phòng tránh crash tương tự vào `.brain` / session.
+   - **Tính năng Mới**: Bộ lọc Dropdown (Tất cả, Còn hàng, Sắp hết, Hết kho) tại màn hình Thuốc.
+   - **Tương tác**: Biến Banner cảnh báo thành "Nút bấm" giúp lọc nhanh các thuốc báo động.
+   - **Sửa lỗi Chí mạng**:
+     - Fix crash khi xem đơn thuốc (do lỗi `sqlite3.Row` trên PySide).
+     - Fix lỗi chặn kê đơn khi đã có chẩn đoán (ưu tiên đọc trường `diagnosis`).
+   - **Tài liệu**: Cập nhật `CHANGELOG.md`, `BRIEF_Medicine_Filter.md`, `DESIGN_Medicine_Filter.md`.
 
 ⏳ CÒN LẠI:
-   - Verify quá trình deploy (Packaging sang Ubuntu/Debian .deb) với SQLite mới (cột stock).
-   - Có thể thêm Auto Unit Tests để bảo vệ luồng Kê Đơn nếu project scale lớn hơn.
+   - Kiểm tra đóng gói `.deb` cho phiên bản mới `v5.1.1`.
+   - Hướng dẫn nhân viên cách dùng bộ lọc mới để kiểm kho nhanh.
 
 🔧 QUYẾT ĐỊNH QUAN TRỌNG:
-   - Local-Only Feature: Inventory tracking chỉ được maintain trong Local database, không map lên Supabase trừ khi có requirement rõ ràng.
+   - Luôn ép kiểu `dict(row)` cho dữ liệu SQLite trước khi đưa vào UI để tránh `AttributeError`.
+   - Giữ nguyên cơ chế Local-Only cho Inventory để bảo vệ cấu trúc Cloud.
 
 ⚠️ LƯU Ý CHO SESSION SAU:
-   - Bất cứ UI Code nào kéo danh sách từ SQLite ở chế độ "row_factory", PHẢI cast thành `dict(row)` nếu cần dùng những method như get(), keys() để tránh `AttributeError`. 
-   - Test tay với `/test` mode vẫn đáng tin nhất do thiếu Test Suite PySide.
+   - Khi chạy ứng dụng, nếu thấy cảnh báo đỏ, hãy thử click trực tiếp vào đó để kiểm chứng độ nhạy của bộ lọc mới.
+   - Nhớ kiểm tra kỹ các file trong thư mục `docs/` nếu cần bàn giao kỹ thuật.
 
 📁 FILES QUAN TRỌNG:
-   - ui_prescription_window_pyside.py (Sửa Row data fix)
-   - ui_patient_pyside.py (Sửa Logic chẩn đoán)
-   - .brain/brain.json (Lưu cấu trúc & gotcha)
+   - `ui_medicine_pyside.py` (Lọc & Alert)
+   - `ui_prescription_window_pyside.py` (Row fix)
+   - `ui_patient_pyside.py` (Diagnosis logic)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📍 Đã lưu! Để tiếp tục: Gõ /recap
+📍 Đã lưu tất cả vào Bộ nhớ Vĩnh cửu! 
+Để tiếp tục bất cứ lúc nào: Gõ /recap
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

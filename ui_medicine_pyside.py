@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, 
     QPushButton, QTreeWidget, QTreeWidgetItem, QHeaderView, 
     QMessageBox, QGroupBox, QSplitter, QFormLayout, QFileDialog,
-    QMenu, QFrame, QStackedWidget, QAbstractItemView
+    QMenu, QFrame, QStackedWidget, QAbstractItemView, QComboBox
 )
 from PySide6.QtCore import Qt, QThreadPool, QSize, QTimer
 from PySide6.QtGui import QAction, QIcon
@@ -74,12 +74,29 @@ class MedicineTab(QWidget):
         left_layout.addWidget(self.alert_banner)
         # -------------------------------------------
         
+        search_filter_row = QHBoxLayout()
+        search_filter_row.setSpacing(10)
+
         self.search_input = QLineEdit()
         self.search_input.setObjectName("SearchInput")
         self.search_input.setPlaceholderText("🔍 Tìm tên thuốc...")
         self.search_input.setFixedHeight(40)
-        self.search_input.textChanged.connect(self.filter_medicines)
-        left_layout.addWidget(self.search_input)
+        self.search_input.textChanged.connect(self.apply_filters)
+        
+        self.filter_combo = QComboBox()
+        self.filter_combo.setObjectName("FilterCombo")
+        self.filter_combo.setFixedHeight(40)
+        self.filter_combo.setMinimumWidth(150)
+        self.filter_combo.addItems(["Tất cả trạng thái", "Còn hàng", "Sắp hết", "Hết kho"])
+        self.filter_combo.currentIndexChanged.connect(self.apply_filters)
+        
+        search_filter_row.addWidget(self.search_input, 7)
+        search_filter_row.addWidget(self.filter_combo, 3)
+        left_layout.addLayout(search_filter_row)
+
+        # Mouse event for Alert Banner
+        self.alert_banner.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.alert_banner.mousePressEvent = self.on_alert_clicked
         
         self.stack_list = QStackedWidget()
         
@@ -337,11 +354,56 @@ class MedicineTab(QWidget):
             else:
                 self.alert_banner.hide()
 
-    def filter_medicines(self, text):
-        t = text.lower()
-        tn = utils.remove_diacritics(t)
-        filtered = [m for m in self.all_medicines_data if t in m['name'].lower() or tn in utils.remove_diacritics(m['name'].lower())]
+    def apply_filters(self):
+        search_text = self.search_input.text().lower()
+        search_text_no_accents = utils.remove_diacritics(search_text)
+        
+        filter_idx = self.filter_combo.currentIndex() # 0: All, 1: InStock, 2: LowStock, 3: OutOfStock
+        
+        filtered = []
+        for med in self.all_medicines_data:
+            # 1. Search Filter
+            med_name = med['name'].lower()
+            med_name_no_accents = utils.remove_diacritics(med_name)
+            match_name = search_text in med_name or search_text_no_accents in med_name_no_accents
+            
+            if not match_name:
+                continue
+                
+            # 2. Status Filter
+            med_dict = dict(med)
+            stock = int(med_dict.get('stock_quantity') or 0)
+            min_stock = int(med_dict.get('min_stock_level') or 5)
+            
+            match_status = True
+            if filter_idx == 1: # Còn hàng
+                match_status = stock > min_stock
+            elif filter_idx == 2: # Sắp hết
+                match_status = 0 < stock <= min_stock
+            elif filter_idx == 3: # Hết kho
+                match_status = stock <= 0
+                
+            if match_status:
+                filtered.append(med)
+                
         self.populate_tree(filtered)
+
+    def on_alert_clicked(self, event):
+        """When clicking the alert banner, prioritize showing Out of Stock, then Low Stock."""
+        # Check counts from data to decide which filter to jump to
+        out_of_stock = 0
+        low_stock = 0
+        for med in self.all_medicines_data:
+            med_dict = dict(med)
+            stock = int(med_dict.get('stock_quantity') or 0)
+            min_stock = int(med_dict.get('min_stock_level') or 5)
+            if stock <= 0: out_of_stock += 1
+            elif stock <= min_stock: low_stock += 1
+            
+        if out_of_stock > 0:
+            self.filter_combo.setCurrentIndex(3) # OutOfStock
+        elif low_stock > 0:
+            self.filter_combo.setCurrentIndex(2) # LowStock
 
     def on_selection_changed(self):
         items = self.tree.selectedItems()

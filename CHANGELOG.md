@@ -1,5 +1,14 @@
 # Changelog - Clinic System
 
+## [5.1.1] - 2026-03-11
+### Added
+- **Bộ lọc Kho Thuốc**: Thêm hộp chọn (Dropdown) lọc nhanh theo trạng thái: Tất cả, Còn hàng, Sắp hết, Hết kho.
+- **Tương tác Cảnh báo**: Nhấp chuột trực tiếp vào dòng "CẢNH BÁO" đỏ ở đầu trang để tự động lọc ra danh sách thuốc cần nhập thêm.
+
+### Fixed
+- **Lỗi Kê Đơn**: Khắc phục lỗi hệ thống báo "Thiếu chẩn đoán" dù đã nhập (do ưu tiên sai nguồn dữ liệu). Giờ đây luôn tìm trường `diagnosis` trước.
+- **Lỗi Crash Kho**: Sửa lỗi `AttributeError` khi truy cập dữ liệu thuốc (Row object) trên giao diện PySide. Đã ép kiểu an toàn sang Dictionary.
+
 ## [5.1.0] - 2026-03-11
 ### Added
 - **Quản lý tồn kho thuốc**: Thêm hệ thống theo dõi số lượng tồn kho (`stock_quantity`) và mức cảnh báo tối thiểu (`min_stock_level`) cho từng loại thuốc.

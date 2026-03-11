@@ -1,42 +1,34 @@
 {
-    "updated_at": "2026-03-11T15:15:00Z",
+    "updated_at": "2026-03-11T12:15:00Z",
     "working_on": {
-        "feature": "Medication Inventory Management (v5.1.0)",
-        "task": "Completed implementation (Local-Only), UI, and Testing",
+        "feature": "Inventory Search & UI Enhancements (v5.1.1)",
+        "task": "Completed Dropdown Filter & Clickable Alert Interaction",
         "status": "done",
         "files": [
-            "database.py",
             "ui_medicine_pyside.py",
-            "ui_stats_pyside.py",
-            "ui_prescription_window_pyside.py",
-            "sync_manager.py",
-            "config.py",
-            "CHANGELOG.md"
+            "CHANGELOG.md",
+            "docs/BRIEF_Medicine_Filter.md",
+            "docs/DESIGN_Medicine_Filter.md"
         ],
         "blockers": [],
-        "notes": "Feature adds stock tracking, low stock alerts, and usage stats. Local SQLite schema expanded; Cloud sync updated to filter out new columns."
+        "notes": "Added status-based filtering (All, InStock, LowStock, OutOfStock) and interactive alert banners for quick navigation."
     },
     "pending_tasks": [
-        { "task": "Verify Linux .deb build for v5.1.0", "priority": "medium" },
-        { "task": "Update documentation for local inventory management for clinic staff", "priority": "low" }
+        { "task": "Verify Linux .deb build for v5.1.1", "priority": "medium" },
+        { "task": "Update documentation for clinical staff regarding new filters", "priority": "low" }
     ],
     "recent_changes": [
-        { "timestamp": "2026-03-11T12:00:00Z", "type": "feature", "description": "Medication Inventory (Local-Only)", "files": ["database.py", "ui_medicine_pyside.py", "ui_prescription_window_pyside.py"] },
-        { "timestamp": "2026-03-11T12:30:00Z", "type": "feature", "description": "Medicine Usage Stats filter", "files": ["ui_stats_pyside.py"] },
-        { "timestamp": "2026-03-11T12:40:00Z", "type": "sync", "description": "Cloud sync filtering for local-only columns", "files": ["sync_manager.py"] },
-        { "timestamp": "2026-03-11T18:30:00Z", "type": "bugfix", "description": "Fix prescription block due to medical_history parsing vs diagnosis field", "files": ["ui_patient_pyside.py"] },
-        { "timestamp": "2026-03-11T18:35:00Z", "type": "bugfix", "description": "Fix sqlite3.Row .get() crash in prescription window", "files": ["ui_prescription_window_pyside.py", "database.py"] }
+        { "timestamp": "2026-03-11T12:05:00Z", "type": "feature", "description": "Status Dropdown Filter in Medicine Tab", "files": ["ui_medicine_pyside.py"] },
+        { "timestamp": "2026-03-11T12:10:00Z", "type": "feature", "description": "Interactive Click-to-Filter Alert Banner", "files": ["ui_medicine_pyside.py"] },
+        { "timestamp": "2026-03-11T12:15:00Z", "type": "docs", "description": "Created Brief and Design docs for Inventory Filter", "files": ["docs/BRIEF_Medicine_Filter.md", "docs/DESIGN_Medicine_Filter.md"] },
+        { "timestamp": "2026-03-11T11:40:00Z", "type": "bugfix", "description": "Fix prescription block due to medical_history parsing vs diagnosis field", "files": ["ui_patient_pyside.py"] },
+        { "timestamp": "2026-03-11T11:35:00Z", "type": "bugfix", "description": "Fix sqlite3.Row .get() crash in prescription window", "files": ["ui_prescription_window_pyside.py", "database.py"] }
     ],
     "errors_encountered": [
-        { "error": "ModuleNotFoundError: No module named 'supabase'", "solution": "Run tests using basic mocks to verify logic when lib is missing in environment", "resolved": true },
-        { "error": "Externally managed environment (PEP 668)", "solution": "Use venv or --break-system-packages (venv recommended)", "resolved": true },
-        { "error": "TypeError: '<=' not supported between instances of 'NoneType' and 'int'", "solution": "Normalize NULL database values to 0 before comparison in UI loop", "resolved": true },
-        { "error": "AttributeError: 'sqlite3.Row' object has no attribute 'get'", "solution": "Explicitly cast sqlite3.Row to dict() before using .get() for optional fields", "resolved": true },
-        { "error": "PyInstaller not found in venv during packaging", "solution": "Installed pyinstaller into venv and updated requirements.txt", "resolved": true },
-        { "error": "Cannot prescribe because app says 'Thiếu chẩn đoán' even when diagnosis exists", "solution": "Check the dedicated diagnosis database field first before falling back to parsing legacy medical_history text", "resolved": true }
+        { "error": "NoneType comparison error in stock loop", "solution": "Normalize NULL to 0", "resolved": true },
+        { "error": "sqlite3.Row has no attribute .get()", "solution": "Cast to dict(row)", "resolved": true }
     ],
     "decisions_made": [
-        { "decision": "Local-Only Inventory", "reason": "User explicitly declined modifying Supabase Cloud schema" },
-        { "decision": "Inline Red Warning in Cart", "reason": "Better visibility for doctors than a blocking dialog when out of stock" }
+        { "decision": "Dropdown + Alert Click Hybrid", "reason": "Save space while keeping critical alerts highly interactive" }
     ]
 }

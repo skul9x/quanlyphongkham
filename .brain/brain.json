@@ -6,7 +6,7 @@
     "project": {
         "name": "Clinic Manager Desktop",
         "type": "Management System (Python/PySide6)",
-        "status": "Production/Stable (v5.1.0)"
+        "status": "Production/Stable (v5.1.1)"
     },
     "tech_stack": {
         "language": "Python 3.x",
@@ -42,7 +42,8 @@
             "Dynamic Runtime Config (Getter/Setter): Dùng config.get_...() thay cho hằng số để hỗ trợ thay đổi cài đặt không cần sửa code.",
             "Debian Packaging Structure: Phân tách file vào /opt/[app], /usr/bin (symlink), và /usr/share/applications.",
             "Simplified Diagnosis-Only Edit Dialog (v5.0.6): Tách biệt việc sửa chẩn đoán khỏi quản lý thuốc để tránh xung đột dữ liệu.",
-            "Linux UI Text Clipping Fix (v5.0.6): Dùng min-height (24px) và padding (6px 12px) để fix lỗi mất chân chữ (g, y, q, p) trên Linux."
+            "Linux UI Text Clipping Fix (v5.0.6): Dùng min-height (24px) và padding (6px 12px) để fix lỗi mất chân chữ (g, y, q, p) trên Linux.",
+            "Clickable Interaction Alert (v5.1.1): Biến Banner thông báo thành nút bấm ẩn để lọc nhanh các danh sách báo động."
         ],
         "gotchas": [
             "Cloud-Only Column Filtering: Khi thêm cột mới ở Local mà không muốn sửa Cloud, PHẢI dùng sync_data.pop('col', None) trong SyncManager.",
