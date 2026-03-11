@@ -1,98 +1,72 @@
-# 🏥 Clinic Manager v5.0.6
-### Hệ thống Quản lý Phòng khám Nhi - Cloud Sync Edition
+# 🏥 Clinic Manager v5.1.0
+### Hệ thống Quản lý Phòng khám Nhi - Inventory & Cloud Sync Edition
 
-![Version](https://img.shields.io/badge/Version-5.0.6-blue.svg?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12+-yellow.svg?style=for-the-badge) ![PySide6](https://img.shields.io/badge/UI-PySide6-green.svg?style=for-the-badge) ![License](https://img.shields.io/badge/License-Private-red.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-5.1.0-blue.svg?style=for-the-badge) ![Python](https://img.shields.io/badge/Python-3.12+-yellow.svg?style=for-the-badge) ![PySide6](https://img.shields.io/badge/UI-PySide6-green.svg?style=for-the-badge) ![License](https://img.shields.io/badge/License-Private-red.svg?style=for-the-badge)
 
-**Clinic Manager** là giải pháp quản lý phòng khám hiện đại, được tối ưu cho các phòng khám Nhi khoa. Phiên bản **v5.0.6** mang đến sự ổn định tuyệt đối với cơ chế đồng bộ đám mây và khả năng quản lý dữ liệu linh hoạt.
+**Clinic Manager** là giải pháp quản lý phòng khám hiện đại, được tối ưu cho các phòng khám Nhi khoa. Phiên bản **v5.1.0** đánh dấu bước tiến lớn với hệ thống **Quản lý kho thuốc Real-time**, giúp bác sĩ kiểm soát hoàn hảo lượng thuốc tồn kho ngay trong lúc kê đơn.
 
 ---
 
-## ✨ Tính năng nổi bật
+## ✨ Tính năng mới: Quản lý Kho thuốc Real-time (v5.1.0) 💊
 
-### 🏥 Quản lý Chuyên môn
-- **Hồ sơ điện tử:** Quản lý lịch sử khám, chẩn đoán và đơn thuốc chi tiết.
+Hệ thống kho được tích hợp sâu vào quy trình khám chữa bệnh hàng ngày:
+
+- **Cập nhật số lượng tức thời:** Số lượng tồn kho thay đổi ngay lập tức sau khi hoàn tất lưu đơn thuốc.
+- **Cảnh báo tồn kho thấp (Low Stock Alert):** Tự động hiển thị biểu tượng cảnh báo ⚠️ và đổi màu đỏ nếu thuốc sắp hết hoặc đã hết hàng.
+- **Kê đơn thông minh:** Hiển thị số dư tồn thực tế ngay trong bảng chọn thuốc để bác sĩ đưa ra quyết định kê đơn chính xác nhất.
+- **Báo cáo Thống kê:** Theo dõi danh sách thuốc dùng nhiều nhất và doanh thu thuốc theo thời gian thực.
+- **Bảo mật dữ liệu:** Hệ thống kho được duy trì local để đảm bảo tốc độ phản hồi nhanh nhất và sự riêng tư tuyệt đối (Local-Only Inventory Tracking).
+
+---
+
+## 🏥 Các tính năng cốt lõi
+
+### 📋 Quản lý Chuyên môn
+- **Hồ sơ điện tử:** Quản lý lịch sử khám, chẩn đoán (đa nguồn: DB field & Legacy text) và đơn thuốc chi tiết.
 - **Kê đơn thông minh:** Tự động tính liều lượng thuốc dựa trên cân nặng của trẻ.
-- **In đơn thuốc:** Hỗ trợ in đơn mẫu A4/A5 chuyên nghiệp.
-- **Kho thuốc:** Theo dõi nhập/xuất/tồn kho và cảnh báo hạn sử dụng.
+- **In đơn thuốc:** Hỗ trợ in đơn mẫu A4/A5 chuyên nghiệp, trình bày rõ ràng.
 
 ### ☁️ Công nghệ Đám mây (Cloud Sync)
-- **Đồng bộ Real-time:** Dữ liệu tự động sao lưu lên Supabase Cloud.
-- **ClinicViewer App:** Theo dõi doanh thu và danh sách bệnh nhân từ xa qua ứng dụng Android.
-- **An toàn Tuyệt đối:** Cơ chế **Local Master** đảm bảo dữ liệu máy tính luôn là nguồn chuẩn. Mất máy tính không mất dữ liệu.
-- **Xóa đồng bộ:** Xóa hồ sơ tại máy tính sẽ lập tức xóa trên Cloud và App Mobile, loại bỏ hoàn toàn "dữ liệu rác".
-
-### 🛡️ Ổn định & Hiệu năng (Mới trong v5.0.5)
-- **Fix Path Portability:** Tự động xử lý đường dẫn tuyệt đối cho Database và Cài đặt, đảm bảo app hoạt động ổn định bất kể vị trí chạy (Desktop, Shortcut hay thư mục cài đặt).
-- **Settings Persistence:** Khắc phục triệt để lỗi không lưu được cài đặt khi chạy file thực thi duy nhất (One-file).
-- **High-DPI Support:** Giao diện sắc nét trên mọi loại màn hình.
-- **Dark/Light Mode:** Chế độ bảo vệ mắt hiện đại.
+- **Đồng bộ Real-time:** Dữ liệu tự động sao lưu lên Supabase Cloud (ngoại trừ dữ liệu kho nội bộ).
+- **ClinicViewer App:** Theo dõi doanh thu và danh sách bệnh nhân từ xa qua ứng dụng Android/Mobile.
+- **An toàn Tuyệt đối:** Cơ chế **Local Master** đảm bảo dữ liệu máy tính luôn là nguồn chuẩn. Mất máy tính có thể khôi phục lại từ Cloud.
 
 ---
 
-## 🚀 Hướng dẫn Cài đặt
+## 🚀 Hướng dẫn Cài đặt & Chạy
 
 ### 🛠️ Yêu cầu Hệ thống
-- **HĐH:** Ubuntu 22.04+ / Windows 10/11
-- **Python:** 3.12+ (nếu chạy từ mã nguồn)
+- **HĐH:** Linux (Ubuntu/Debian) / Windows 10/11
+- **Python:** 3.12+ (Khuyến khích dùng môi trường ảo `venv`)
 
-### 1. Chạy từ Mã nguồn
+### 📦 Chạy từ Mã nguồn
 ```bash
-# Tạo môi trường ảo
+# Tạo môi trường ảo và kích hoạt
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Linux
+# venv\Scripts\activate  # Windows
 
 # Cài đặt thư viện
-pip install -r requirements.txt # Hoặc cài lẻ: PySide6 pytz supabase openpyxl matplotlib
-```
+pip install -r requirements.txt
 
-Chạy ứng dụng:
-```bash
+# Khởi chạy ứng dụng
 python3 main_pyside.py
 ```
-
-### 2. Đóng gói ứng dụng (Build Executable)
-
-Sử dụng PyInstaller để tạo file thực thi duy nhất (`.exe` trên Windows hoặc binary trên Linux):
-
-#### 🐧 Trên Linux (Ubuntu/Debian)
-```bash
-venv/bin/pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 \
-    --onefile --windowed --icon=logo.ico \
-    --add-data "logo.ico:." \
-    --hidden-import pytz --hidden-import supabase --hidden-import postgrest \
-    --hidden-import httpx --hidden-import openpyxl main_pyside.py
-```
-
-#### 🪟 Trên Windows
-```powershell
-# Lưu ý: Dấu phân cách trong --add-data là dấu chấm phẩy (;)
-venv\Scripts\pyinstaller --noconfirm --name QuanLyPhongKhamv5.0.5 `
-    --onefile --windowed --icon=logo.ico `
-    --add-data "logo.ico;." `
-    --hidden-import pytz --hidden-import supabase --hidden-import postgrest `
-    --hidden-import httpx --hidden-import openpyxl main_pyside.py
-```
-
----
-
-## 🛠️ Cấu trúc Dữ liệu
-Dự án sử dụng mô hình **Hybrid Database**:
-1. **Local (SQLite):** `clinic.db` - Tốc độ cao, hoạt động Offline.
-2. **Cloud (Supabase/PostgreSQL):** Sao lưu động và cung cấp API cho App Mobile.
 
 ---
 
 ## 📝 Nhật ký Cập nhật (Changelog)
 
-### v5.0.5 (Hiện tại) - 2026-02-24
-- **Fix:** Xử lý triệt để lỗi đường dẫn `settings.json` khi chạy từ Shortcut hoặc Desktop.
-- **Fix:** Đảm bảo lưu cài đặt thành công trong môi trường PyInstaller Single Executable.
-- **Update:** Cấu hình tiền công khám mặc định mới: **120.000 VNĐ**.
-- **Optimization:** Cải thiện tốc độ khởi động và đồng bộ ban đầu.
+### v5.1.0 (Hiện tại) - 2026-03-11
+- **Feature:** Hệ thống quản lý kho thuốc tích hợp (Real-time Inventory Tracking).
+- **Feature:** Thống kê thuốc và doanh thu theo thời gian thực.
+- **Fix:** Khắc phục lỗi kiểm tra chẩn đoán đa nguồn (hỗ trợ cả cột `diagnosis` mới và `medical_history` cũ).
+- **Fix:** Xử lý triệt để lỗi crash `AttributeError` khi đọc dữ liệu từ SQLite Row.
+- **Update:** Tối ưu hóa UI bảng chọn thuốc với các chỉ báo màu sắc cho tồn kho.
 
-### v5.0.3 - 2026-02-07
-- **Feature:** Sync Delete Đồng Bộ - Xóa dữ liệu an toàn tuyệt đối.
-- **Fix:** Ngăn chặn Zombie Data (dữ liệu đã xóa tự hồi sinh).
+### v5.0.6 - 2026-02-28
+- **Fix:** Sửa lỗi hiển thị chân chữ (g, y, p, q) trên môi trường Linux Ubuntu.
+- **Update:** Tách biệt cửa sổ "Sửa Chẩn Đoán" để tối ưu quy trình nhập liệu nhanh.
 
 ---
 
