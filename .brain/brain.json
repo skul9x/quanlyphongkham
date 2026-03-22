@@ -1,0 +1,73 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "4.0.2"
+    },
+    "project": {
+        "name": "Clinic Manager Desktop",
+        "type": "Management System (Python/PySide6)",
+        "status": "Production/Stable (v5.1.1+)"
+    },
+    "tech_stack": {
+        "language": "Python 3.x",
+        "ui_framework": "PySide6 (Qt for Python)",
+        "database": "SQLite (local), Supabase (cloud sync - partially)",
+        "serialization": "Idempotent Sync (Upsert based)",
+        "packaging": "PyInstaller, Debian (.deb) Packaging"
+    },
+    "features": [
+        "Quản lý bệnh nhân (CRUD)",
+        "Ghi nhận lượt khám và kê đơn",
+        "Tính toán liều lượng thuốc tự động",
+        "Quản lý tồn kho thuốc (Local-Only): Theo dõi số lượng, ngưỡng cảnh báo, tự động trừ kho",
+        "Báo cáo thống kê thuốc dùng nhiều nhất và doanh thu thuốc",
+        "One-Way Push Sync: Local là Master, chỉ đẩy lên Cloud (v5.0.2)",
+        "Cloud-as-Backup: Khôi phục tự động khi cài lại app (Local DB trống)",
+        "Báo cáo thống kê doanh thu/bệnh nhân",
+        "Tùy chỉnh Tiền công khám (Consultation Fee) linh hoạt qua Settings UI",
+        "Seamless Visit-to-Prescription Flow (v5.2.0 - Complete): Tự động mở cửa sổ kê đơn ngay sau khi thêm lượt khám."
+    ],
+    "knowledge_items": {
+        "patterns": [
+            "MVP with PySide6",
+            "Background Sync Queue (SyncManager Singleton)",
+            "Local-Only Inventory Tracking (v5.1.0): Tồn kho chỉ lưu SQLite local, không thay đổi schema Supabase Cloud.",
+            "Inline Warning in Prescription: Cảnh báo đỏ ngay trong bảng kê đơn nếu số lượng vượt quá tồn tồn kho.",
+            "One-Way Push Sync (v5.0.2): Local là Master, chỉ Push lên Cloud. Auto-pull disabled để tránh Zombie Data.",
+            "Legacy-to-New Data Migration (medical_history -> structured tables)",
+            "Sync-After-Commit Pattern (Avoid Race Condition)",
+            "Exponential Backoff Retry (3 attempts: 1s, 3s, 5s)",
+            "Double-Write Pattern (Legacy Compatibility): Cập nhật đồng thời bảng quan hệ mới và trường text legacy.",
+            "Legacy Medical History Parsing (Regex): Dùng Regex để parse ngược chuỗi legacy thành object (Pattern: 'STT) Name x Qty Spec').",
+            "AUTOINCREMENT Sequence Reset (v5.0.2): Reset sqlite_sequence sau khi restore từ Cloud để tránh ID conflict.",
+            "Dynamic Runtime Config (Getter/Setter): Dùng config.get_...() thay cho hằng số để hỗ trợ thay đổi cài đặt không cần sửa code.",
+            "Debian Packaging Structure: Phân tách file vào /opt/[app], /usr/bin (symlink), và /usr/share/applications.",
+            "Simplified Diagnosis-Only Edit Dialog (v5.0.6): Tách biệt việc sửa chẩn đoán khỏi quản lý thuốc để tránh xung đột dữ liệu.",
+            "Linux UI Text Clipping Fix (v5.0.6): Dùng min-height (24px) và padding (6px 12px) để fix lỗi mất chân chữ (g, y, q, p) trên Linux.",
+            "Clickable Interaction Alert (v5.1.1): Biến Banner thông báo thành nút bấm ẩn để lọc nhanh các danh sách báo động.",
+            "ID-Returning Database Pattern (v5.2.0): Database functions trả về ID thay vì boolean để UI có thể track entity vừa tạo.",
+            "Action-Based Callback Pattern (v5.2.0): Truyền 'action' và 'entity_id' ngược về màn hình chính để tự động hóa các luồng công việc kế tiếp.",
+            "Interrupt-Free UX (v5.2.0): Loại bỏ các popup thành công không cần thiết khi thực hiện các tác vụ liên tục.",
+            "QTimer Delayed UI Actions (v5.2.0): Dùng QTimer.singleShot() để delay việc mở dialog/window sau khi UI đã cập nhật xong, tránh race condition."
+        ],
+        "gotchas": [
+            "Cloud-Only Column Filtering: Khi thêm cột mới ở Local mà không muốn sửa Cloud, PHẢI dùng sync_data.pop('col', None) trong SyncManager.",
+            "Lỗi định dạng ngày Supabase (PHẢI xử lý replace 'tháng' thành '-')",
+            "Khi pull data từ Cloud, PHẢI chạy migration ngay để UI Desktop (v4.4+) thấy được đơn đơn thuốc mới.",
+            "SyncManager cần lọc các cột nội bộ (e.g. prescription_migrated) trước khi đẩy lên Supabase.",
+            "LUÔN commit local database trước khi gọi sync manager để tránh Race Condition.",
+            "Sử dụng shallow copy (dict(data)) trước khi đưa vào sync queue để tránh side effect.",
+            "Đóng gói bằng PyInstaller CẦN hidden-imports: postgrest, httpx, openpyxl.",
+            "sqlite3.Row Object Gotcha: Không dùng được .get() trực tiếp, PHẢI ép kiểu dict(row) trước khi truy cập linh hoạt.",
+            "NULL Stock Safety: Khi thêm cột mới vào DB cũ, các giá trị NULL sẽ làm app crash nếu so sánh trực tiếp. PHẢI cast (int(val) if val is not None else 0) trong UI loop.",
+            "FK Constraint Order: Khi sync, PHẢI đẩy Medicines lên trước PrescriptionDetails để tránh lỗi 23503 trên Supabase.",
+            "Dual Diagnosis Fields: Ứng dụng có cả `diagnosis` và dòng đầu của `medical_history`. Khi đọc chẩn đoán, luôn ưu tiên field `diagnosis` mới.",
+            "Integer ID is Truthy: Khi database trả về ID (integer), check `if new_id:` vẫn hoạt động vì số nguyên > 0 là truthy. Chỉ cần check None/0 cho error case."
+        ],
+        "conventions": [
+            "Database functions returning entities: Return ID (int) on success, None on failure",
+            "Callback pattern: Pass both action type and entity ID to enable conditional UI flows",
+            "Phase-based implementation: Split large UX changes into DB → UI → Integration phases"
+        ]
+    }
+}

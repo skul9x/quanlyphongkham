@@ -1,0 +1,13 @@
+cd ~/Desktop/Test_code/quanlyphongkham-Supabase-v2
+
+# 1. Đảm bảo có công cụ đóng gói trong môi trường ảo
+venv/bin/pip install pyinstaller
+
+# 2. Xóa file build cũ (nếu có)
+rm -f dist/QuanLyPhongKhamv5.1.0
+
+# 3. Chạy script đóng gói tự động
+bash build_deb.sh
+
+# 4. Cài đặt vào hệ thống
+sudo dpkg -i quanlyphongkham_5.1.0_amd64.deb
