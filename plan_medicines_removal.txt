@@ -1,0 +1,17 @@
+The user wants to simplify the functionality of the "Sửa chẩn đoán + Đơn thuốc" button.
+Currently, it opens a dialog `ui_edit_diagnosis_window_pyside.py` with:
+- Weight
+- Diagnosis
+- Medicine Text Area
+
+The new requirement is:
+- Change button text to "Sửa chẩn đoán"
+- Remove the Medicine Text Area from the dialog.
+- The dialog will ONLY edit Weight and Diagnosis.
+
+Therefore:
+1. `ui_patient_pyside.py`: find the button and rename it.
+2. `ui_edit_diagnosis_window_pyside.py`: Remove the text area and label for medicines. Adjust the `save()` method.
+3. `database.py`: The change we just made to `update_visit_details_db` might be dangerous now if it clears out existing proper prescriptions when someone just wants to edit a typo in the diagnosis. We should revert it back to exactly what it was before: just update the `medical_history` and `diagnosis` fields on the `patients` table, and leave the prescription tables completely alone. (Actually, wait, if the user edits the diagnosis, should they still edit the combined text? The user said "sửa thuốc thì bỏ luôn tính năng... chỉ còn sửa Chẩn đoán thôi" -- this implies the "Danh sách thuốc (Text)" box is completely gone from the UI).
+
+Let's look at the UI files.
