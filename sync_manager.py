@@ -55,7 +55,10 @@ class SyncManager:
             self.worker_thread.join(timeout=1.0)
 
     def _process_queue(self):
-        """Main worker loop to process sync tasks"""
+        """
+        Main worker loop to process sync tasks.
+        Uses a non-blocking retry mechanism to prevent Head-of-Line Blocking.
+        """
         while self.is_running:
             try:
                 # Get task with timeout to allow checking is_running
@@ -64,62 +67,59 @@ class SyncManager:
                 except queue.Empty:
                     continue
 
+                # Check if it's time to retry this task
+                next_retry_at = task.get('next_retry_at', 0)
+                if next_retry_at > time.time():
+                    # Not time yet, put back in queue and sleep briefly to avoid spin
+                    self.sync_queue.put(task)
+                    self.sync_queue.task_done()
+                    time.sleep(0.5) 
+                    continue
+
                 table = task.get('table')
                 action = task.get('action') # 'upsert' or 'delete'
                 data = task.get('data')
-                
-                print(f"[SYNC] Processing {action} on {table}...")
-                
-                # [FIX] Simple Retry with exponential backoff
+                retry_count = task.get('retry_count', 0)
                 max_retries = 3
-                retry_delays = [1, 3, 5]  # seconds
-                success = False
+                retry_delays = [5, 15, 60] # Sequential delays: 5s, 15s, 60s
                 
-                for attempt in range(max_retries):
-                    try:
-                        if action == 'delete':
-                            self.client.table(table).delete().eq('id', data['id']).execute()
-                        else:
-                            # Make a copy to avoid modifying original data
-                            sync_data = dict(data)
-                            
-                            # [FIX] Filter out internal columns not in Supabase
-                            if table == 'patients' and 'prescription_migrated' in sync_data:
-                                del sync_data['prescription_migrated']
-                                
-                            # [v5.1.0] Do NOT sync local-only inventory fields to Supabase
-                            if table == 'medicines':
-                                sync_data.pop('stock_quantity', None)
-                                sync_data.pop('min_stock_level', None)
-                            
-                            # [FIX] v4.5.2: Validate DOB before sync
-                            if table == 'patients':
-                                sync_data = self._sanitize_patient_data(sync_data)
-                                
-                            # Ensure dates are serialized properly if needed
-                            self.client.table(table).upsert(sync_data).execute()
-                            
-                        print(f"[SYNC] {action} on {table} SUCCESS")
-                        success = True
-                        break  # Exit retry loop on success
+                try:
+                    if action == 'delete':
+                        self.client.table(table).delete().eq('id', data['id']).execute()
+                    else:
+                        # Make a copy to avoid modifying original data
+                        sync_data = dict(data)
                         
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            delay = retry_delays[attempt]
-                            print(f"[SYNC] Attempt {attempt + 1}/{max_retries} failed. Retrying in {delay}s... Error: {e}")
-                            time.sleep(delay)
-                        else:
-                            print(f"[SYNC] FAILED after {max_retries} attempts: {action} on {table}")
-                            print(f"[SYNC] Error: {e}")
-                            traceback.print_exc()
-                
-                if not success:
-                    print(f"[SYNC] ⚠️ Data may be out of sync for {table} id={data.get('id', 'unknown')}")
+                        # Filter out internal columns not in Supabase
+                        if table == 'patients' and 'prescription_migrated' in sync_data:
+                            del sync_data['prescription_migrated']
+                            
+                        # [v5.1.0] Do NOT sync local-only inventory fields
+                        if table == 'medicines':
+                            sync_data.pop('stock_quantity', None)
+                            sync_data.pop('min_stock_level', None)
+                        
+                        if table == 'patients':
+                            sync_data = self._sanitize_patient_data(sync_data)
+                            
+                        self.client.table(table).upsert(sync_data).execute()
+                        
+                    self.sync_queue.task_done()
                     
-                self.sync_queue.task_done()
-                
+                except Exception as e:
+                    if retry_count < max_retries:
+                        delay = retry_delays[retry_count]
+                        task['retry_count'] = retry_count + 1
+                        task['next_retry_at'] = time.time() + delay
+                        print(f"[SYNC] Task failed, retrying in {delay}s (Attempt {task['retry_count']}/{max_retries})... Error: {e}")
+                        self.sync_queue.put(task)
+                    else:
+                        print(f"[SYNC] PERMANENT FAILURE for {action} on {table} id={data.get('id', 'unknown')}: {e}")
+                    
+                    self.sync_queue.task_done()
+                    
             except Exception as e:
-                print(f"[SYNC] Worker loop error: {e}")
+                print(f"[SYNC] Worker critical error: {e}")
                 time.sleep(1)
 
     def _sanitize_patient_data(self, data: dict) -> dict:
@@ -289,9 +289,7 @@ class SyncManager:
             response = self.client.table('medicines').select('*').execute()
             medicines = response.data or []
             print(f"[SYNC] Pulling {len(medicines)} medicines from Cloud...")
-            
-            for med in medicines:
-                database.insert_medicine_from_cloud(med)
+            database.insert_medicines_bulk(medicines)
             
             # 2. Pull Patients
             if progress_callback:
@@ -300,9 +298,7 @@ class SyncManager:
             response = self.client.table('patients').select('*').execute()
             patients = response.data or []
             print(f"[SYNC] Pulling {len(patients)} patients from Cloud...")
-            
-            for p in patients:
-                database.insert_patient_from_cloud(p)
+            database.insert_patients_bulk(patients)
             
             # 3. Pull Prescription Headers
             if progress_callback:
@@ -311,9 +307,7 @@ class SyncManager:
             response = self.client.table('prescriptions_header').select('*').execute()
             headers = response.data or []
             print(f"[SYNC] Pulling {len(headers)} prescription headers from Cloud...")
-            
-            for h in headers:
-                database.insert_prescription_header_from_cloud(h)
+            database.insert_headers_bulk(headers)
             
             # 4. Pull Prescription Details
             if progress_callback:
@@ -322,9 +316,7 @@ class SyncManager:
             response = self.client.table('prescription_details').select('*').execute()
             details = response.data or []
             print(f"[SYNC] Pulling {len(details)} prescription details from Cloud...")
-            
-            for d in details:
-                database.insert_prescription_detail_from_cloud(d)
+            database.insert_details_bulk(details)
             
             # [FIX] v4.5.1: Run migration to convert legacy medical_history to new format
             # This is needed because Cloud stores data in legacy format (medical_history column)
@@ -437,10 +429,10 @@ class SyncManager:
                 if progress_callback:
                     progress_callback(f"Đang đẩy {len(to_push)} bệnh nhân...", 70)
                 
-                for pid in to_push:
-                    patient = database.get_patient_by_id(pid)
-                    if patient:
-                        self.sync_patient(patient)
+                # [v5.2.0] Batch fetch patients to avoid N+1 queries
+                missing_patients = database.get_patients_by_ids(list(to_push))
+                for patient in missing_patients:
+                    self.sync_patient(patient)
             
             if progress_callback:
                 progress_callback("Đồng bộ hoàn tất!", 100)

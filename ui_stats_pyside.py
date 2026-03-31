@@ -243,7 +243,6 @@ class StatsTab(QWidget):
                 self.overlay.hide_loading()
 
         worker.signals.result.connect(on_loaded)
-        worker.signals.result.connect(on_loaded)
         worker.signals.error.connect(on_error) 
         worker.signals.finished.connect(lambda: self._cleanup_worker(worker))
         self.threadpool.start(worker)

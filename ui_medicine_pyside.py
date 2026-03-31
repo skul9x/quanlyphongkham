@@ -23,6 +23,9 @@ class MedicineTab(QWidget):
         # --- FIX: Track active workers to prevent GC ---
         self._active_workers = set()
         
+        # --- [v5.2.0] Cache for normalized names to speed up search ---
+        self.medicine_norm_cache = {} # mid -> name_no_accents
+        
         self.setup_ui()
         
         self.overlay = LoadingOverlay(self)
@@ -275,6 +278,12 @@ class MedicineTab(QWidget):
         print(f"[UI] Medicines loaded: {len(data)} records")
         self.overlay.hide_loading()
         self.all_medicines_data = data
+        
+        # [v5.2.0] Re-populate normalized cache
+        self.medicine_norm_cache = {}
+        for med in data:
+            self.medicine_norm_cache[med['id']] = utils.remove_diacritics(med['name'].lower())
+            
         self.populate_tree(self.all_medicines_data)
         self.clear_form()
 
@@ -363,8 +372,15 @@ class MedicineTab(QWidget):
         filtered = []
         for med in self.all_medicines_data:
             # 1. Search Filter
+            # [v5.2.0] Use cached normalized name instead of re-calculating
             med_name = med['name'].lower()
-            med_name_no_accents = utils.remove_diacritics(med_name)
+            mid = med['id']
+            med_name_no_accents = self.medicine_norm_cache.get(mid, "")
+            
+            if not med_name_no_accents: # Fallback if cache missing
+                med_name_no_accents = utils.remove_diacritics(med_name)
+                self.medicine_norm_cache[mid] = med_name_no_accents
+
             match_name = search_text in med_name or search_text_no_accents in med_name_no_accents
             
             if not match_name:
@@ -594,29 +610,60 @@ class MedicineTab(QWidget):
         def task():
             wb = openpyxl.load_workbook(fp, data_only=True)
             s = wb.active
-            count = 0
+            
+            # Fetch existing names to avoid duplicates efficiently
+            existing_names = {m['name'].lower(): True for m in database.get_all_medicines_db()}
+            
+            to_insert = []
             for r in s.iter_rows(min_row=2, values_only=True):
                 if len(r) >= 2 and r[1]:
                     name = str(r[1]).strip()
-                    if not name: continue
+                    if not name or name.lower() in existing_names:
+                        continue
+                        
+                    spec = str(r[2]).strip() if len(r) > 2 and r[2] else ""
+                    try:
+                        # Clean up price string: replace comma with dot for float conversion
+                        price_str = str(r[3]).replace(",", ".") if len(r) > 3 and r[3] is not None else "0"
+                        price = float(price_str)
+                    except: 
+                        price = 0.0
                     
-                    if not database.get_medicine_by_name_db(name):
-                         spec = str(r[2]).strip() if len(r) > 2 and r[2] else ""
-                         try:
-                            price = float(str(r[3]).replace(",", ".")) if len(r) > 3 and r[3] else 0.0
-                         except: price = 0.0
-                         
-                         if database.add_medicine_db(name, spec, price):
-                             count += 1
-            return count
+                    to_insert.append({
+                        'name': name,
+                        'packing_spec': spec,
+                        'price': price,
+                        'stock_quantity': 0,
+                        'min_stock_level': 5
+                    })
+                    # Mark as existing to avoid duplicates within the same Excel file
+                    existing_names[name.lower()] = True
+            
+            if to_insert:
+                print(f"[WORKER] Bulk inserting {len(to_insert)} medicines...")
+                if database.insert_medicines_bulk(to_insert):
+                    # For newly imported items, we must sync them to Cloud
+                    # Since we need IDs for sync, we fetch them back
+                    for med_data in to_insert:
+                        db_med = database.get_medicine_by_name_db(med_data['name'])
+                        if db_med:
+                            from sync_manager import sync_manager
+                            sync_manager.sync_medicine(db_med)
+                    return len(to_insert)
+            return 0
 
         def fin(res):
             self.overlay.hide_loading()
-            QMessageBox.information(self, "Hoàn tất", f"Đã nhập thành công {res} thuốc mới.")
-            self.load_medicines()
+            if res > 0:
+                QMessageBox.information(self, "Hoàn tất", f"Đã nhập thành công {res} thuốc mới.")
+                self.load_medicines()
+            else:
+                QMessageBox.information(self, "Thông báo", "Không có thuốc mới nào được thêm (có thể do trùng lặp hoặc file rỗng).")
             
         def err(e):
+            print(f"[UI] Excel Import Error: {e}")
+            traceback.print_exc()
             self.overlay.hide_loading()
-            QMessageBox.critical(self, "Lỗi", f"Lỗi đọc file Excel: {str(e[1])}")
+            QMessageBox.critical(self, "Lỗi", f"Lỗi đọc file Excel hoặc lưu DB: {str(e[1])}")
             
         self.run_worker(task, fin, err)

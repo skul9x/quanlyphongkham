@@ -8,7 +8,7 @@ if getattr(sys, 'frozen', False):
     _APP_DIR = os.path.dirname(sys.executable)
 else:
     _APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_NAME = '/home/skul9x/Desktop/Onedrive/Music/QuanLyPhongKhamv5.0.4/clinic.db'
+DATABASE_NAME = os.path.join(_APP_DIR, 'clinic.db')
 _database_path_override = None
 
 def set_database_path(path):
@@ -23,7 +23,7 @@ def get_database_path():
     return DATABASE_NAME
 
 DEFAULT_PAGE_SIZE = 50
-APP_VERSION = "5.1.1" # Medication Inventory Management
+APP_VERSION = "5.1.2" # Medication Inventory Management
 DEFAULT_APP_TITLE = "CLINIC MANAGER"
 APP_TITLE = f"Phần mềm Quản lý Phòng khám Nhi v{APP_VERSION}"
 APP_ICON = os.path.join(_APP_DIR, "logo.ico")

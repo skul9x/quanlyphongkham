@@ -130,6 +130,12 @@ def initialize_database():
             c.execute("CREATE INDEX IF NOT EXISTS idx_patients_created_at ON patients(created_at)")
             print("[DB] Migration complete: 'allergies' -> 'weight'.")
         
+        # --- [v5.2.0] Add Prescription Indexes ---
+        c.execute("CREATE INDEX IF NOT EXISTS idx_prescriptions_header_patient_id ON prescriptions_header(patient_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_prescriptions_header_date ON prescriptions_header(prescription_date)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_prescription_details_header_id ON prescription_details(prescription_header_id)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_prescription_details_medicine_id ON prescription_details(medicine_id)")
+        
         # --- Migration: Add diagnosis and prescription_migrated columns to patients ---
         c.execute("PRAGMA table_info(patients)")
         columns = [col[1] for col in c.fetchall()]
@@ -727,8 +733,24 @@ def get_stats_by_day_for_month(ym):
     try:
         conn = _get_db_connection()
         c = conn.cursor()
-        query = "SELECT DATE(created_at) as visit_date, COUNT(*) as count FROM patients WHERE strftime('%Y-%m', created_at) = ? GROUP BY visit_date ORDER BY visit_date DESC"
-        c.execute(query, (ym,))
+        
+        # [v5.2.0] Optimize: Use indexed range query instead of strftime function
+        # ym format: 'YYYY-MM'
+        try:
+            year, month = map(int, ym.split('-'))
+            start_date = f"{year:04d}-{month:02d}-01 00:00:00"
+            if month == 12:
+                end_date = f"{year+1:04d}-01-01 00:00:00"
+            else:
+                end_date = f"{year:04d}-{month+1:02d}-01 00:00:00"
+            
+            query = "SELECT DATE(created_at) as visit_date, COUNT(*) as count FROM patients WHERE created_at >= ? AND created_at < ? GROUP BY visit_date ORDER BY visit_date DESC"
+            c.execute(query, (start_date, end_date))
+        except (ValueError, IndexError):
+            # Fallback to legacy if format is weird
+            query = "SELECT DATE(created_at) as visit_date, COUNT(*) as count FROM patients WHERE strftime('%Y-%m', created_at) = ? GROUP BY visit_date ORDER BY visit_date DESC"
+            c.execute(query, (ym,))
+            
         rows = c.fetchall()
         result = [dict(r) for r in rows]
         return result
@@ -815,11 +837,30 @@ def get_patient_dobs_by_time(filter_type, time_value):
     params = []
 
     if filter_type == "month": 
-        where_clause = "WHERE strftime('%Y-%m', created_at) = ?"
-        params.append(time_value)
+        # time_value format: 'YYYY-MM'
+        try:
+            year, month = map(int, time_value.split('-'))
+            start_date = f"{year:04d}-{month:02d}-01 00:00:00"
+            if month == 12:
+                end_date = f"{year+1:04d}-01-01 00:00:00"
+            else:
+                end_date = f"{year:04d}-{month+1:02d}-01 00:00:00"
+            where_clause = "WHERE created_at >= ? AND created_at < ?"
+            params = [start_date, end_date]
+        except (ValueError, IndexError):
+            where_clause = "WHERE strftime('%Y-%m', created_at) = ?"
+            params.append(time_value)
     elif filter_type == "year": 
-        where_clause = "WHERE strftime('%Y', created_at) = ?"
-        params.append(time_value)
+        # time_value format: 'YYYY'
+        try:
+            year = int(time_value)
+            start_date = f"{year:04d}-01-01 00:00:00"
+            end_date = f"{year+1:04d}-01-01 00:00:00"
+            where_clause = "WHERE created_at >= ? AND created_at < ?"
+            params = [start_date, end_date]
+        except ValueError:
+            where_clause = "WHERE strftime('%Y', created_at) = ?"
+            params.append(time_value)
 
     try:
         conn = _get_db_connection()
@@ -1121,6 +1162,8 @@ def append_items_to_prescription_db(prescription_id, items):
         # Calculate additional amount
         added_amount = sum(item.get('quantity', 0) * item.get('unit_price', 0) for item in items)
         
+        detail_ids_to_sync = []
+        
         # Insert new detail rows + deduct stock
         for item in items:
             c.execute("""
@@ -1128,6 +1171,8 @@ def append_items_to_prescription_db(prescription_id, items):
                 (prescription_header_id, medicine_id, quantity, unit_price)
                 VALUES (?, ?, ?, ?)
             """, (prescription_id, item['medicine_id'], item['quantity'], item['unit_price']))
+            
+            detail_ids_to_sync.append(c.lastrowid)
             
             # [v5.1.0] Deduct stock in the same transaction
             c.execute("UPDATE medicines SET stock_quantity = stock_quantity - ? WHERE id = ?",
@@ -1144,15 +1189,20 @@ def append_items_to_prescription_db(prescription_id, items):
         c.execute("SELECT * FROM prescriptions_header WHERE id=?", (prescription_id,))
         header = c.fetchone()
         
-        c.execute("SELECT * FROM prescription_details WHERE prescription_header_id=?", (prescription_id,))
-        details = c.fetchall()
+        # Only fetch the NEWLY added details (Batch IN query is faster than looping)
+        new_details = []
+        if detail_ids_to_sync:
+            # Prepare placeholders for IN clause
+            placeholders = ','.join(['?'] * len(detail_ids_to_sync))
+            c.execute(f"SELECT * FROM prescription_details WHERE id IN ({placeholders})", detail_ids_to_sync)
+            new_details = c.fetchall()
         
         conn.commit()
         
-        # [SYNC] Only sync AFTER commit succeeds
+        # [SYNC] Only sync the header and NEW details
         if header:
             sync_manager.sync_prescription_header(header)
-        for d in details:
+        for d in new_details:
             sync_manager.sync_prescription_detail(d)
         
         print(f"[DB] Appended {len(items)} items to prescription {prescription_id}")
@@ -1172,6 +1222,7 @@ def append_items_to_prescription_db(prescription_id, items):
 def get_prescriptions_by_patient_db(patient_id):
     """
     Get all prescriptions for a patient with details.
+    Uses batch fetch for details to avoid N+1 queries.
     
     Returns: List of prescription dicts with nested items
     """
@@ -1180,7 +1231,7 @@ def get_prescriptions_by_patient_db(patient_id):
         conn = _get_db_connection()
         c = conn.cursor()
         
-        # Get prescription headers
+        # 1. Get prescription headers
         c.execute("""
             SELECT id, prescription_date, diagnosis, total_amount, notes
             FROM prescriptions_header
@@ -1188,23 +1239,38 @@ def get_prescriptions_by_patient_db(patient_id):
             ORDER BY prescription_date DESC
         """, (patient_id,))
         
-        prescriptions = []
-        for row in c.fetchall():
-            prescription = dict(row)
+        headers = [dict(row) for row in c.fetchall()]
+        if not headers:
+            return []
             
-            # Get details for this prescription
-            c.execute("""
-                SELECT pd.id, pd.medicine_id, pd.quantity, pd.unit_price,
-                       m.name as medicine_name, m.packing_spec
-                FROM prescription_details pd
-                LEFT JOIN medicines m ON pd.medicine_id = m.id
-                WHERE pd.prescription_header_id = ?
-            """, (prescription['id'],))
-            
-            prescription['items'] = [dict(item) for item in c.fetchall()]
-            prescriptions.append(prescription)
+        header_ids = [h['id'] for h in headers]
         
-        return prescriptions
+        # 2. Get ALL details for ALL headers in ONE query
+        placeholders = ','.join(['?'] * len(header_ids))
+        c.execute(f"""
+            SELECT pd.id, pd.prescription_header_id, pd.medicine_id, pd.quantity, pd.unit_price,
+                   m.name as medicine_name, m.packing_spec
+            FROM prescription_details pd
+            LEFT JOIN medicines m ON pd.medicine_id = m.id
+            WHERE pd.prescription_header_id IN ({placeholders})
+        """, header_ids)
+        
+        all_details = c.fetchall()
+        
+        # 3. Group details by header_id using a Dict
+        details_by_header = {}
+        for row in all_details:
+            detail = dict(row)
+            hid = detail['prescription_header_id']
+            if hid not in details_by_header:
+                details_by_header[hid] = []
+            details_by_header[hid].append(detail)
+            
+        # 4. Map details back to headers
+        for h in headers:
+            h['items'] = details_by_header.get(h['id'], [])
+            
+        return headers
         
     except sqlite3.Error as e:
         print(f"[DB ERROR] get_prescriptions_by_patient_db: {e}")
@@ -1296,6 +1362,23 @@ def get_all_patient_ids():
         c.execute("SELECT id FROM patients")
         return [row['id'] for row in c.fetchall()]
     except sqlite3.Error:
+        return []
+    finally:
+        if conn: conn.close()
+
+def get_patients_by_ids(pids):
+    """Fetch multiple patients by their IDs in a single batch query."""
+    if not pids:
+        return []
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        placeholders = ','.join(['?'] * len(pids))
+        c.execute(f"SELECT * FROM patients WHERE id IN ({placeholders})", tuple(pids))
+        return [dict(row) for row in c.fetchall()]
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] get_patients_by_ids: {e}")
         return []
     finally:
         if conn: conn.close()
@@ -1407,6 +1490,138 @@ def insert_prescription_detail_from_cloud(data):
         return True
     except sqlite3.Error as e:
         print(f"[DB ERROR] insert_prescription_detail_from_cloud: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+# --- Bulk Operations (v5.2.0) ---
+
+def insert_patients_bulk(data_list):
+    """Bulk insert patients from Cloud data."""
+    if not data_list:
+        return True
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        # Prepare params
+        params = []
+        for data in data_list:
+            # Compute normalized name for indexed search
+            name_normalized = utils.remove_diacritics(data.get('name', '').lower()) if data.get('name') else None
+            params.append((
+                data.get('id'),
+                data.get('name'),
+                data.get('dob'),
+                data.get('gender'),
+                data.get('address'),
+                data.get('phone'),
+                data.get('weight'),
+                data.get('medical_history'),
+                data.get('created_at'),
+                name_normalized,
+                data.get('diagnosis')
+            ))
+            
+        c.executemany('''INSERT OR REPLACE INTO patients 
+                         (id, name, dob, gender, address, phone, weight, medical_history, created_at, name_normalized, diagnosis)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', params)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_patients_bulk: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_medicines_bulk(data_list):
+    """Bulk insert medicines from Cloud or Excel data."""
+    if not data_list:
+        return True
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        params = []
+        for data in data_list:
+            params.append((
+                data.get('id'), # May be None if importing from Excel
+                data.get('name'),
+                data.get('packing_spec'),
+                data.get('price', 0.0),
+                data.get('stock_quantity', 0),
+                data.get('min_stock_level', 5)
+            ))
+            
+        c.executemany('''INSERT OR REPLACE INTO medicines (id, name, packing_spec, price, stock_quantity, min_stock_level)
+                         VALUES (?, ?, ?, ?, ?, ?)''', params)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_medicines_bulk: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_headers_bulk(data_list):
+    """Bulk insert prescription headers from Cloud data."""
+    if not data_list:
+        return True
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        params = []
+        for data in data_list:
+            params.append((
+                data.get('id'),
+                data.get('patient_id'),
+                data.get('prescription_date'),
+                data.get('diagnosis'),
+                data.get('total_amount'),
+                data.get('notes')
+            ))
+            
+        c.executemany('''INSERT OR REPLACE INTO prescriptions_header 
+                         (id, patient_id, prescription_date, diagnosis, total_amount, notes)
+                         VALUES (?, ?, ?, ?, ?, ?)''', params)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_headers_bulk: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def insert_details_bulk(data_list):
+    """Bulk insert prescription details from Cloud data."""
+    if not data_list:
+        return True
+    conn = None
+    try:
+        conn = _get_db_connection()
+        c = conn.cursor()
+        
+        params = []
+        for data in data_list:
+            params.append((
+                data.get('id'),
+                data.get('prescription_header_id'),
+                data.get('medicine_id'),
+                data.get('quantity'),
+                data.get('unit_price')
+            ))
+            
+        c.executemany('''INSERT OR REPLACE INTO prescription_details 
+                         (id, prescription_header_id, medicine_id, quantity, unit_price)
+                         VALUES (?, ?, ?, ?, ?)''', params)
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] insert_details_bulk: {e}")
         return False
     finally:
         if conn: conn.close()
