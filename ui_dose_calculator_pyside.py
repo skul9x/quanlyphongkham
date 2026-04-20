@@ -4,8 +4,9 @@ from PySide6.QtWidgets import (
     QRadioButton, QButtonGroup, QFormLayout, QMessageBox
 )
 from PySide6.QtCore import Qt
-import json
 import os
+import json
+import config
 from animation_helper import AnimationHelper
 
 
@@ -89,12 +90,23 @@ class DoseCalculatorWindow(QDialog):
             {"name": "Biseptol", "mg": 240, "ml": 5, "dose": 48}
         ]
         try:
-            # Use absolute path relative to this script
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            drugs_path = os.path.join(base_path, "drugs.json")
+            # 1. Try Writable User Data path first
+            user_drugs_path = os.path.join(config._DATA_DIR, "drugs.json")
+            if os.path.exists(user_drugs_path):
+                with open(user_drugs_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
             
-            if os.path.exists(drugs_path):
-                with open(drugs_path, "r", encoding="utf-8") as f:
+            # 2. Fallback: Try App Bundle path (bundled with the application)
+            bundle_drugs_path = os.path.join(config._APP_DIR, "drugs.json")
+            if os.path.exists(bundle_drugs_path):
+                # Optional: Copy to data dir for future editing if in frozen mode
+                if config._DATA_DIR != config._APP_DIR:
+                    try:
+                        import shutil
+                        shutil.copy2(bundle_drugs_path, user_drugs_path)
+                    except: pass
+                
+                with open(bundle_drugs_path, "r", encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             print(f"Error loading drugs.json: {e}")
@@ -391,8 +403,7 @@ class DoseCalculatorWindow(QDialog):
 
     def save_drugs_data(self):
         try:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            drugs_path = os.path.join(base_path, "drugs.json")
+            drugs_path = os.path.join(config._DATA_DIR, "drugs.json")
             with open(drugs_path, "w", encoding="utf-8") as f:
                 json.dump(self.drugs_data, f, indent=4, ensure_ascii=False)
         except Exception as e:

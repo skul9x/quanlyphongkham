@@ -2,10 +2,11 @@
 
 # 1. Cấu hình thông tin
 PACKAGE_NAME="quanlyphongkham"
-VERSION="5.1.1"
+# VERSION="5.2.0"
+VERSION=$(python3 -c "import config; print(config.APP_VERSION)")
 ARCH="amd64"
 STAGING_DIR="deb_build"
-EXE_NAME="QuanLyPhongKhamv5.1.1"
+EXE_NAME="QuanLyPhongKhamv${VERSION}"
 
 echo "🚀 Bắt đầu đóng gói .deb cho $PACKAGE_NAME v$VERSION..."
 
@@ -32,7 +33,27 @@ EOF
 # 4. Kiểm tra và Copy file thực thi
 if [ ! -f "dist/$EXE_NAME" ]; then
     echo "⚠️ Không tìm thấy file 'dist/$EXE_NAME'. Đang tiến hành build PyInstaller trước..."
-    venv/bin/pyinstaller --noconfirm --name $EXE_NAME --onefile --icon=logo.ico --add-data "logo.ico:." --add-binary "venv/lib/python3.12/site-packages/PySide6/Qt/plugins/platforminputcontexts/libibusplatforminputcontextplugin.so:PySide6/Qt/plugins/platforminputcontexts/" --hidden-import pytz --hidden-import supabase --hidden-import postgrest --hidden-import httpx --hidden-import openpyxl main_pyside.py
+    
+    # Tìm đường dẫn plugin iBus (để hỗ trợ gõ tiếng Việt)
+    IBUS_PLUGIN=$(find venv/lib -name "libibusplatforminputcontextplugin.so" | head -n 1)
+    
+    if [ -z "$IBUS_PLUGIN" ]; then
+        echo "❌ Lỗi: Không tìm thấy libibusplatforminputcontextplugin.so trong venv."
+        echo "Vui lòng chạy: ./venv/bin/pip install PySide6"
+        exit 1
+    fi
+
+    ./venv/bin/pyinstaller --noconfirm --name "$EXE_NAME" --onefile --windowed \
+        --icon=logo.ico \
+        --add-data "logo.ico:." \
+        --add-data "drugs.json:." \
+        --add-binary "$IBUS_PLUGIN:PySide6/Qt/plugins/platforminputcontexts/" \
+        --hidden-import pytz \
+        --hidden-import supabase \
+        --hidden-import postgrest \
+        --hidden-import httpx \
+        --hidden-import openpyxl \
+        main_pyside.py
 fi
 
 cp dist/$EXE_NAME $STAGING_DIR/opt/$PACKAGE_NAME/

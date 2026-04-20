@@ -1,16 +1,21 @@
 cd ~/Desktop/Test_code/quanlyphongkham-Supabase-v2
 
-# 1. Đảm bảo có công cụ đóng gói trong môi trường ảo 
-python3 -m venv venv
-
-# Cài đặt các thư viện cần thiết
+# 1. Chuẩn bị môi trường (chỉ làm lần đầu)
+if [ ! -d "venv" ]; then
+    python3 -m venv venv
+    ./venv/bin/pip install --upgrade pip
+fi
 ./venv/bin/pip install -r requirements.txt
 
-# 2. Xóa file build cũ (nếu có)
-rm -f dist/QuanLyPhongKhamv5.1.1
+# 2. Xóa các file build cũ để tránh nhầm lẫn
+rm -rf dist/
+rm -rf build/
+rm -f quanlyphongkham_*.deb
 
-# 3. Chạy script đóng gói tự động
+# 3. Cấp quyền và chạy script đóng gói
+chmod +x build_deb.sh
 bash build_deb.sh
 
-# 4. Cài đặt vào hệ thống
-sudo dpkg -i quanlyphongkham_5.1.1_amd64.deb
+# 4. Cài đặt bản 5.2 vừa tạo
+# (Lưu ý: Tên file .deb sẽ được tạo dựa trên version trong config.py)
+sudo dpkg -i quanlyphongkham_5.2_amd64.deb

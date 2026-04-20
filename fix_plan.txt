@@ -1,1 +1,0 @@
-1. Read the code for `ui_prescription_window_pyside.py` and `ui_patient_pyside.py` to see how prescriptions are normally updated/loaded.

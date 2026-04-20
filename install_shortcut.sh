@@ -2,7 +2,8 @@
 
 # Đường dẫn hiện tại của project
 PROJECT_DIR=$(pwd)
-EXEC_PATH="$PROJECT_DIR/dist/QuanLyPhongKhamv5.0.6"
+VERSION=$(python3 -c "import config; print(config.APP_VERSION)")
+EXEC_PATH="$PROJECT_DIR/dist/QuanLyPhongKhamv${VERSION}"
 ICON_PATH="$PROJECT_DIR/logo.ico"
 APP_NAME="Quan Ly Phong Kham"
 

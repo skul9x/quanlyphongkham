@@ -2,19 +2,59 @@
 # Lưu trữ các hằng số cấu hình
 import os
 import sys
+import shutil
 
-# PyInstaller --onefile: __file__ points to temp dir, sys.executable points to real app location
+# APP_DIR: nơi chứa file thực thi + assets tĩnh (logo.ico) — READ ONLY khi đóng gói
 if getattr(sys, 'frozen', False):
     _APP_DIR = os.path.dirname(sys.executable)
 else:
     _APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE_NAME = os.path.join(_APP_DIR, 'clinic.db')
+
+# DATA_DIR: nơi chứa dữ liệu có thể ghi (clinic.db, settings.json)
+# - Dev mode: cùng thư mục source code (không thay đổi behavior)
+# - Frozen Linux (.deb): ~/.quanlyphongkham/ (vì /opt/ không cho ghi)
+# - Frozen Windows (.exe): %APPDATA%/QuanLyPhongKham/
+if getattr(sys, 'frozen', False):
+    if sys.platform == 'win32':
+        _DATA_DIR = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'QuanLyPhongKham')
+    else:
+        _DATA_DIR = os.path.join(os.path.expanduser('~'), '.quanlyphongkham')
+    os.makedirs(_DATA_DIR, exist_ok=True)
+else:
+    _DATA_DIR = _APP_DIR  # Dev mode: cùng thư mục source
+
+def _migrate_data_from_app_dir():
+    """One-time migration: copy data files from old location (/opt/...) to new DATA_DIR."""
+    if _DATA_DIR == _APP_DIR:
+        return  # Dev mode or same dir, no migration needed
+    
+    files_to_migrate = ['clinic.db', 'settings.json']
+    for filename in files_to_migrate:
+        old_path = os.path.join(_APP_DIR, filename)
+        new_path = os.path.join(_DATA_DIR, filename)
+        if os.path.exists(old_path) and not os.path.exists(new_path):
+            try:
+                shutil.copy2(old_path, new_path)
+                print(f"[MIGRATION] Copied {filename} from {_APP_DIR} to {_DATA_DIR}")
+            except Exception as e:
+                print(f"[MIGRATION] Failed to copy {filename}: {e}")
+
+_migrate_data_from_app_dir()
+
+DATABASE_NAME = os.path.join(_DATA_DIR, 'clinic.db')
 _database_path_override = None
 
 def set_database_path(path):
     """Set the database path before initializing the database."""
     global _database_path_override
-    _database_path_override = path
+    # Normalize: strip whitespace, convert empty/whitespace-only to None
+    _database_path_override = path.strip() if path and path.strip() else None
+
+def get_database_path_override():
+    """Returns the raw override path, or empty string if using default.
+    Used by save_settings() to distinguish 'custom path' vs 'default'.
+    """
+    return _database_path_override or ""
 
 def get_database_path():
     """Returns the current database path (override or default)."""
@@ -23,7 +63,7 @@ def get_database_path():
     return DATABASE_NAME
 
 DEFAULT_PAGE_SIZE = 50
-APP_VERSION = "5.1.2" # Medication Inventory Management
+APP_VERSION = "5.2" # Database Path & Packaging Stabilization
 DEFAULT_APP_TITLE = "CLINIC MANAGER"
 APP_TITLE = f"Phần mềm Quản lý Phòng khám Nhi v{APP_VERSION}"
 APP_ICON = os.path.join(_APP_DIR, "logo.ico")

@@ -34,11 +34,27 @@ if getattr(sys, 'frozen', False):
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def _load_db_path_early():
+    """Load database path from settings.json before ANY database access."""
+    settings_file = os.path.join(config._DATA_DIR, "settings.json")
+    try:
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r') as f:
+                settings = json.load(f)
+                db_path = settings.get("database_path", "").strip()
+                if db_path and os.path.exists(db_path):
+                    config.set_database_path(db_path)
+                    print(f"[STARTUP] Database path loaded early: {db_path}")
+                elif db_path:
+                    print(f"[STARTUP] WARNING: Saved DB path does not exist: {db_path}, using default")
+    except (json.JSONDecodeError, IOError) as e:
+        print(f"[STARTUP] Could not read settings: {e}")
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.settings_file = os.path.join(APP_DIR, "settings.json")
+        self.settings_file = os.path.join(config._DATA_DIR, "settings.json")
         self.current_theme = "light"
         self.sidebar_collapsed = False
         
@@ -317,11 +333,15 @@ class MainWindow(QMainWindow):
 
     def _load_database_path_from_settings(self):
         """Read database_path from settings.json BEFORE database initialization."""
+        # Skip if already loaded (by _load_db_path_early)
+        if config.get_database_path_override():
+            return
+            
         try:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
                     settings = json.load(f)
-                    db_path = settings.get("database_path", "")
+                    db_path = settings.get("database_path", "").strip()
                     if db_path and os.path.exists(db_path):
                         config.set_database_path(db_path)
                         print(f"[CONFIG] Database path: {db_path}")
@@ -335,7 +355,7 @@ class MainWindow(QMainWindow):
             "theme": self.current_theme,
             "sidebar_collapsed": self.sidebar_collapsed,
             "app_title": self.app_logo.text(),  
-            "database_path": config.get_database_path(),
+            "database_path": config.get_database_path_override(),
             "consultation_fee": config.get_consultation_fee(),
             
             "window_geometry": {
@@ -436,6 +456,9 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName(config.APP_TITLE)
     app.setOrganizationName("NguyenDuyTruong")
+    
+    # [STARTUP] Load DB path FIRST, before any DB access
+    _load_db_path_early()
     
     # [STARTUP] Show Splash Screen
     from ui_splash_screen import SplashScreen

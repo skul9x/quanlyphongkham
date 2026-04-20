@@ -4,6 +4,46 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 import config
+import sqlite3
+import os
+import sys
+
+def _validate_sqlite_file(file_path):
+    """Validate that a file is a valid SQLite database.
+    Returns: (is_valid: bool, error_message: str)
+    """
+    try:
+        conn = sqlite3.connect(file_path)
+        # Check SQLite integrity
+        result = conn.execute("PRAGMA integrity_check").fetchone()
+        if result[0] != "ok":
+            conn.close()
+            return False, "File database bị hỏng (integrity check failed)"
+        
+        # Optional: Check if it has expected tables
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+        table_names = [t[0] for t in tables]
+        conn.close()
+        
+        # Warn if it doesn't look like a clinic database
+        expected_tables = ['patients', 'medicines']
+        has_expected = any(t in table_names for t in expected_tables)
+        
+        if not has_expected:
+            return True, (
+                f"⚠️ File này không chứa bảng dữ liệu quen thuộc "
+                f"(patients, medicines).\n"
+                f"Các bảng tìm thấy: {', '.join(table_names) if table_names else '(trống)'}\n\n"
+                f"Bạn vẫn muốn sử dụng file này?"
+            )
+        
+        return True, ""
+    except sqlite3.DatabaseError as e:
+        return False, f"File không phải database SQLite hợp lệ:\n{str(e)}"
+    except Exception as e:
+        return False, f"Không đọc được file:\n{str(e)}"
 
 class HelpTab(QWidget):
     def __init__(self, main_window=None):
@@ -118,8 +158,23 @@ class HelpTab(QWidget):
         """)
         btn_browse.clicked.connect(self.browse_db_path)
 
+        btn_open_folder = QPushButton("📁")
+        btn_open_folder.setFixedWidth(40)
+        btn_open_folder.setToolTip("Mở thư mục chứa database")
+        btn_open_folder.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_open_folder.setStyleSheet("""
+            QPushButton { 
+                background-color: #64748b; color: white; 
+                font-weight: bold; border-radius: 4px; padding: 8px; 
+                font-size: 14px;
+            }
+            QPushButton:hover { background-color: #475569; }
+        """)
+        btn_open_folder.clicked.connect(self.open_db_folder)
+
         db_path_row.addWidget(self.txt_db_path)
         db_path_row.addWidget(btn_browse)
+        db_path_row.addWidget(btn_open_folder)
         db_layout.addLayout(db_path_row)
 
         btn_reset_db = QPushButton("Quay về mặc định (clinic.db)")
@@ -130,7 +185,25 @@ class HelpTab(QWidget):
             QPushButton:hover { background-color: #f1f5f9; color: #1e293b; }
         """)
         btn_reset_db.clicked.connect(self.reset_db_path)
-        db_layout.addWidget(btn_reset_db)
+        
+        btn_create_new = QPushButton("Tạo mới")
+        btn_create_new.setFixedWidth(100)
+        btn_create_new.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_create_new.setStyleSheet("""
+            QPushButton { 
+                border: 1px solid #3b82f6; border-radius: 4px; 
+                padding: 5px; color: #3b82f6; 
+                font-weight: 600;
+            }
+            QPushButton:hover { background-color: #eff6ff; }
+        """)
+        btn_create_new.clicked.connect(self.create_new_db)
+
+        btn_row2 = QHBoxLayout()
+        btn_row2.addWidget(btn_reset_db)
+        btn_row2.addWidget(btn_create_new)
+        btn_row2.addStretch()
+        db_layout.addLayout(btn_row2)
 
         db_warn = QLabel("⚠️ Thay đổi cần khởi động lại ứng dụng để có hiệu lực.")
         db_warn.setStyleSheet("color: #e11d48; font-size: 12px; font-style: italic; background-color: transparent;")
@@ -283,20 +356,143 @@ class HelpTab(QWidget):
 
     def browse_db_path(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
+        
+        # Mở FileDialog
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Chọn file Database", "", "Database files (*.db);;All files (*.*)"
         )
-        if file_path:
-            config.set_database_path(file_path)
-            self.txt_db_path.setText(file_path)
-            if self.main_window:
-                self.main_window.save_settings()
-            QMessageBox.information(self, "Thành công", "Đã lưu đường dẫn mới!\nVui lòng khởi động lại ứng dụng để áp dụng thay đổi.")
+        if not file_path:
+            return
+        
+        # ① Validate SQLite
+        is_valid, message = _validate_sqlite_file(file_path)
+        
+        if not is_valid:
+            QMessageBox.warning(self, "File không hợp lệ", message)
+            return
+        
+        # ② Warning nếu file hợp lệ nhưng không phải clinic DB
+        if message:  # has warning message
+            reply = QMessageBox.question(
+                self, "Cảnh báo",
+                message,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        # ③ Confirmation dialog
+        current_path = config.get_database_path()
+        reply = QMessageBox.question(
+            self, "Xác nhận chuyển Database",
+            f"Bạn có chắc muốn chuyển sang database mới?\n\n"
+            f"📂 Hiện tại: {current_path}\n"
+            f"📂 Mới: {file_path}\n\n"
+            f"Dữ liệu hiện tại sẽ không bị xóa,\n"
+            f"nhưng ứng dụng sẽ đọc/ghi vào file mới.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        
+        # ④ Lưu
+        config.set_database_path(file_path)
+        self.txt_db_path.setText(file_path)
+        if self.main_window:
+            self.main_window.save_settings()
+        QMessageBox.information(
+            self, "Thành công", 
+            "Đã lưu đường dẫn mới!\n"
+            "Vui lòng khởi động lại ứng dụng để áp dụng thay đổi."
+        )
 
     def reset_db_path(self):
         from PySide6.QtWidgets import QMessageBox
+        
+        # Chỉ cần confirm nếu đang dùng custom path
+        if config.get_database_path_override():
+            reply = QMessageBox.question(
+                self, "Xác nhận",
+                f"Quay về database mặc định?\n\n"
+                f"📂 Đang dùng: {config.get_database_path()}\n"
+                f"📂 Mặc định: {config.DATABASE_NAME}",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
         config.set_database_path(None)
-        self.txt_db_path.setText(config.DATABASE_NAME)
+        self.txt_db_path.setText(config.get_database_path())
         if self.main_window:
             self.main_window.save_settings()
-        QMessageBox.information(self, "Thành công", "Đã quay về mặc định!\nVui lòng khởi động lại ứng dụng để áp dụng thay đổi.")
+        QMessageBox.information(self, "Thành công", 
+            "Đã quay về mặc định!\nVui lòng khởi động lại ứng dụng để áp dụng thay đổi.")
+
+    def open_db_folder(self):
+        """Open the folder containing the current database file."""
+        import subprocess
+        import platform
+        
+        db_path = config.get_database_path()
+        folder = os.path.dirname(db_path)
+        
+        if not os.path.exists(folder):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Lỗi", f"Thư mục không tồn tại:\n{folder}")
+            return
+        
+        # Cross-platform folder open
+        system = platform.system()
+        if system == "Linux":
+            subprocess.Popen(["xdg-open", folder])
+        elif system == "Darwin":  # macOS
+            subprocess.Popen(["open", folder])
+        elif system == "Windows":
+            subprocess.Popen(["explorer", folder])
+
+    def create_new_db(self):
+        """Create a new empty database at a user-chosen location."""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+        import sqlite3
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Tạo Database mới", "clinic.db", 
+            "Database files (*.db)"
+        )
+        if not file_path:
+            return
+        
+        # Ensure .db extension
+        if not file_path.endswith('.db'):
+            file_path += '.db'
+        
+        # Check if file already exists
+        if os.path.exists(file_path):
+            reply = QMessageBox.question(
+                self, "File đã tồn tại",
+                f"File {os.path.basename(file_path)} đã tồn tại.\n"
+                "Bạn muốn sử dụng file này thay vì tạo mới?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        else:
+            # Create empty SQLite file
+            try:
+                conn = sqlite3.connect(file_path)
+                conn.close()
+            except Exception as e:
+                QMessageBox.warning(self, "Lỗi", f"Không tạo được file:\n{str(e)}")
+                return
+        
+        # Set as current DB
+        config.set_database_path(file_path)
+        self.txt_db_path.setText(file_path)
+        if self.main_window:
+            self.main_window.save_settings()
+        QMessageBox.information(
+            self, "Thành công", 
+            f"Đã tạo database mới tại:\n{file_path}\n\n"
+            "Vui lòng khởi động lại ứng dụng để áp dụng thay đổi.\n"
+            "(Ứng dụng sẽ tự tạo các bảng dữ liệu khi khởi động)"
+        )
